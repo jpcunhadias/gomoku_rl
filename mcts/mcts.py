@@ -32,6 +32,11 @@ class MCTS:
             else:
                 raise TypeError("Action must be either an int or a tuple of (row, col)")
 
+            if not state.is_legal_move(row, col):
+                print(f"[DEBUG] Illegal move selected: {action} → ({row}, {col})")
+                print("Legal moves:", state.get_legal_moves())
+                raise RuntimeError("MCTS selected an illegal move during simulation.")
+
             state.apply_move(row, col)
 
         # Check for terminal state before expansion
