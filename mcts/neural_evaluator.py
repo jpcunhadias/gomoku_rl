@@ -5,43 +5,38 @@ from model.policy_value_net import PolicyValueNet
 
 
 class NeuralEvaluator:
-    def __init__(self, model: PolicyValueNet):
-        self.model = model
+    def __init__(self, model: PolicyValueNet, device: str = "cpu"):
+        self.model = model.to(device)
+        self.device = device
+        self.model.eval()
 
     def evaluate(self, board) -> (list, float):
         """
-        Evaluates a given board using the neural network model.
-
-        Args:
-            board: A GomokuBoard instance representing the current state of the game.
-
-        Returns:
-            action_priors (list): A list of tuples (action, probability) for each move.
-            value (float): A scalar value representing the board's evaluation.
+        Explicitly evaluates a GomokuBoard, returning legal move priors and value.
         """
-        # Convert board to tensor input for the model
-        tensor_input = board_to_tensor(board, board.current_player)
-
-        # Ensure we have a 4D tensor [batch_size, channels, height, width]
-        if tensor_input.dim() == 3:
-            tensor_input = tensor_input.unsqueeze(0)
-
-        # Set the model to evaluation mode
-        self.model.eval()
+        tensor_input = board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
-            # Forward pass through the model
+            policy_logits, value = self.model(tensor_input)
+            policy = torch.softmax(policy_logits.view(-1), dim=0).cpu().numpy()
+
+        legal_moves = board.get_legal_move_indices()
+        action_priors = [(i, policy[i]) for i in legal_moves]
+        return action_priors, value.item()
+
+    def __call__(self, board):
+        """
+        Evaluates a board using the policy-value network.
+        Returns a list of (legal_move, probability) pairs and a scalar value.
+        """
+        tensor_input = board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
             policy_logits, value = self.model(tensor_input)
 
-            # Apply softmax to convert logits to probabilities
-            policy = torch.softmax(policy_logits, dim=-1).cpu().numpy()  # shape: [1, num_moves]
+        policy = torch.softmax(policy_logits.view(-1), dim=0).view(15, 15).cpu().numpy()
 
-            # Remove batch dimension
-            policy = policy[0]  # shape: [num_moves]
+        legal_moves = board.get_legal_moves()
+        action_priors = [(move, policy[move[0], move[1]]) for move in legal_moves]
 
-            # Convert to list of (action, probability) pairs
-            legal_moves = board.get_legal_move_indices()
-            action_priors = [(i, policy[i]) for i in legal_moves]
-
-            # Return the action priors and scalar value
-            return action_priors, value.item()
+        return action_priors, value.item()
