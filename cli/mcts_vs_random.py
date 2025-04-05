@@ -20,13 +20,12 @@ def play_mcts_vs_random():
     current_player = 0
 
     while not board.is_terminal():
-        print(board)
+        board.render()
         action = players[current_player].get_action(board)
         print(f"\n{players[current_player]} plays {action}")
         board.apply_move(*action)
         current_player = 1 - current_player
 
-    print(board)
     print("Game Over.")
     print("Winner:", board.get_winner())
 

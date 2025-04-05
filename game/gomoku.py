@@ -47,43 +47,33 @@ class GomokuBoard:
         directions = [
             (1, 0),  # Down
             (0, 1),  # Right
-            (1, 1),  # Diagonal: down-right
-            (1, -1)  # Diagonal: down-left
+            (1, 1),  # Diagonal down-right
+            (1, -1)  # Diagonal down-left
         ]
 
-        # Check from the last move
         last_row, last_col = self.last_move
-        player = self.board[last_row, last_col]  # Get the player who made the last move
+        player = self.board[last_row, last_col]
 
-        print(f"Checking win for player {player} from position {self.last_move}")
-
-        # For each direction, check both sides (positive and negative directions)
         for dr, dc in directions:
-            count = 1  # Start by counting the current piece
-            print(f"Checking direction {dr}, {dc}")
+            count = 1
 
-            # Check in the positive direction (dr, dc)
+            # Check in the positive direction
             r, c = last_row + dr, last_col + dc
             while 0 <= r < self.board_size and 0 <= c < self.board_size and self.board[r, c] == player:
                 count += 1
                 r += dr
                 c += dc
-                print(f"Positive direction: Checking ({r}, {c}), count={count}")
 
-            # Check in the negative direction (-dr, -dc)
+            # Check in the negative direction
             r, c = last_row - dr, last_col - dc
             while 0 <= r < self.board_size and 0 <= c < self.board_size and self.board[r, c] == player:
                 count += 1
                 r -= dr
                 c -= dc
-                print(f"Negative direction: Checking ({r}, {c}), count={count}")
 
-            # If we find n_in_row, the player wins
             if count >= self.n_in_row:
-                print(f"Found a winning line with {count} pieces!")
                 return True, player
 
-        # If no winner found
         return False, -1
 
     def check_draw(self):
