@@ -1,7 +1,9 @@
-from typing import Callable, Dict, Any
-from mcts.tree_node import TreeNode
-import numpy as np
 import random
+from typing import Callable, Dict, Any
+
+import numpy as np
+
+from mcts.tree_node import TreeNode
 
 
 class MCTS:
@@ -12,6 +14,17 @@ class MCTS:
         self.evaluator_fn = evaluator_fn
         self.c_puct = c_puct
         self.n_simulations = n_simulations
+        self.root = TreeNode()
+
+    def update_with_move(self, move):
+        """
+        Reuse the subtree rooted at the selected child node (if available).
+        """
+        if hasattr(self, "root") and move in self.root.children:
+            self.root = self.root.children[move]
+            self.root.parent = None  # clear reference to previous root
+        else:
+            self.root = TreeNode()  # reset tree if move not in children
 
     def run_simulation(self, root: TreeNode, board):
         """
@@ -54,13 +67,12 @@ class MCTS:
         """
         Run simulations and return a distribution over actions from the root node.
         """
-        root = TreeNode()
 
         for _ in range(self.n_simulations):
-            self.run_simulation(root, board)
+            self.run_simulation(self.root, board)
 
-        # Build {action: visit_count}
-        visit_counts = {action: child.n_visits for action, child in root.children.items()}
+        visit_counts = {action: child.n_visits for action, child in self.root.children.items()}
+
         return self._normalize_counts(visit_counts, temp)
 
     def _normalize_counts(self, counts: Dict[Any, int], temp: float) -> Dict[Any, float]:

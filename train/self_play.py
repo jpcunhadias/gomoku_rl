@@ -1,0 +1,102 @@
+import random
+
+import numpy as np
+import torch
+
+from game import encoder
+from mcts.tree_node import TreeNode
+
+
+class SelfPlayRunner:
+    def __init__(
+            self,
+            game_cls,
+            mcts_cls,
+            evaluator,
+            buffer,
+            num_simulations=800,
+            dirichlet_alpha=0.3,
+            dirichlet_epsilon=0.25,
+            temperature_schedule=None,
+            augment_fn=None,
+            verbose=False,
+    ):
+        self.game_cls = game_cls
+        self.mcts_cls = mcts_cls
+        self.evaluator = evaluator
+        self.buffer = buffer
+        self.num_simulations = num_simulations
+        self.dirichlet_alpha = dirichlet_alpha
+        self.dirichlet_epsilon = dirichlet_epsilon
+        self.temperature_schedule = temperature_schedule or (lambda move: 1.0)
+        self.augment_fn = augment_fn
+        self.verbose = verbose
+
+    def play_game(self):
+        board = self.game_cls()
+        mcts = self.mcts_cls(self.evaluator, self.num_simulations)
+        mcts.root = TreeNode()
+
+        game_data = []
+        move_number = 0
+        current_player = 1
+        first_move = True
+
+        while not board.is_terminal():
+            state_tensor = encoder.board_to_tensor(board, current_player)
+            temperature = self.temperature_schedule(move_number)
+
+            action_probs = mcts.get_action_probs(board, temp=temperature)
+
+            if first_move:
+                action_probs = self._add_dirichlet_noise(action_probs)
+                first_move = False
+
+            pi = self._dict_to_policy_vector(action_probs, board.get_legal_moves())
+            game_data.append((state_tensor, pi, current_player))
+
+            actions, probs = zip(*action_probs.items())
+            move = random.choices(actions, weights=probs, k=1)[0]
+
+            board.apply_move(*move)
+            mcts.update_with_move(move)
+
+            if self.verbose:
+                board.render()
+
+            move_number += 1
+            current_player *= -1
+
+        winner = board.get_winner()
+        if winner == 2:
+            winner = -1
+
+        final_data = []
+
+        for state_tensor, pi, player in game_data:
+            z = winner * player
+            pi_tensor = torch.from_numpy(pi)
+            final_data.append((state_tensor, pi_tensor, z))
+
+        if self.augment_fn:
+            final_data = self.augment_fn(final_data)
+
+        self.buffer.add(final_data)
+
+    def _add_dirichlet_noise(self, action_probs):
+        actions = list(action_probs.keys())
+        noise = np.random.dirichlet([self.dirichlet_alpha] * len(actions))
+        noisy_probs = {}
+        for a, n in zip(actions, noise):
+            noisy_probs[a] = (
+                    (1 - self.dirichlet_epsilon) * action_probs[a] +
+                    self.dirichlet_epsilon * n
+            )
+        return noisy_probs
+
+    def _dict_to_policy_vector(self, action_probs, legal_moves):
+        """Converts action_probs to a 15x15 π vector (matching network output)"""
+        pi = np.zeros((15, 15), dtype=np.float32)
+        for (i, j), prob in action_probs.items():
+            pi[i, j] = prob
+        return pi
