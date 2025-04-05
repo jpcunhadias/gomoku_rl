@@ -23,7 +23,16 @@ class MCTS:
         # Selection
         while not node.is_leaf():
             action, node = node.select_child(self.c_puct)
-            state.apply_move(*action)
+            # If action is an integer, convert it to (row, col)
+            if isinstance(action, int):
+                row, col = state.index_to_move(action)
+            # Otherwise, if it's already a tuple, use it directly
+            elif isinstance(action, tuple):
+                row, col = action
+            else:
+                raise TypeError("Action must be either an int or a tuple of (row, col)")
+
+            state.apply_move(row, col)
 
         # Check for terminal state before expansion
         if state.is_terminal():
