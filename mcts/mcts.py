@@ -1,6 +1,7 @@
 from typing import Callable, Dict, Any
 from mcts.tree_node import TreeNode
 import numpy as np
+import random
 
 
 class MCTS:
@@ -22,7 +23,7 @@ class MCTS:
         # Selection
         while not node.is_leaf():
             action, node = node.select_child(self.c_puct)
-            state.apply_move(action)
+            state.apply_move(*action)
 
         # Check for terminal state before expansion
         if state.is_terminal():
@@ -53,7 +54,7 @@ class MCTS:
             # Deterministic choice
             max_visits = max(counts.values())
             best_actions = [a for a, v in counts.items() if v == max_visits]
-            best_action = np.random.choice(best_actions)
+            best_action = random.choice(best_actions)
             return {a: 1.0 if a == best_action else 0.0 for a in counts}
 
         counts_arr = np.array(list(counts.values()), dtype=np.float32)

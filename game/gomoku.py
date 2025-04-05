@@ -93,6 +93,10 @@ class GomokuBoard:
             return not win  # it's a draw if nobody won
         return False
 
+    def get_winner(self):
+        win, winner = self.check_win()
+        return winner if win else None
+
     def get_current_state(self):
         """Return a 4-channel tensor of the board state from current player's perspective."""
         state = np.zeros((4, self.board_size, self.board_size), dtype=np.float32)
@@ -144,6 +148,18 @@ class GomokuBoard:
         new_board.current_player = self.current_player
         new_board.last_move = self.last_move
         return new_board
+
+    def is_terminal(self):
+        win, _ = self.check_win()
+        return win or self.check_draw()
+
+    def evaluate_terminal(self):
+        win, winner = self.check_win()
+        if win:
+            return 1.0 if winner == self.current_player else -1.0
+        elif self.check_draw():
+            return 0.0
+        raise RuntimeError("evaluate_terminal() called on non-terminal board.")
 
 
 class GomokuGameManager:

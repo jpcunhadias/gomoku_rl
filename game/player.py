@@ -1,7 +1,10 @@
 import random
-from typing import Tuple, Protocol
+from typing import Tuple, Protocol, Any
+
+import numpy as np
 
 from game.gomoku import GomokuBoard
+from mcts.mcts import MCTS
 
 
 class Player(Protocol):
@@ -13,12 +16,12 @@ class RandomPlayer:
     def __init__(self, player_id: int):
         self.player_id = player_id
 
+    def __repr__(self):
+        return f"RandomPlayer({self.player_id})"
+
     def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
         legal_moves = board.get_legal_moves()
         return random.choice(legal_moves)
-
-    def __repr__(self):
-        return f"RandomPlayer({self.player_id})"
 
 
 class HumanPlayer:
@@ -36,3 +39,21 @@ class HumanPlayer:
                     print("Illegal move. Try again.")
             except Exception:
                 print("Invalid input. Format must be: row,col (e.g. 7,7)")
+
+
+class MCTSPlayer:
+    def __init__(self, mcts: MCTS, temperature: float = 1e-3):
+        self.mcts = mcts
+        self.temperature = temperature
+
+    def __repr__(self):
+        return f"MCTSPlayer(temperature={self.temperature})"
+
+    def get_action(self, board) -> Any:
+        """
+        Runs MCTS simulations and selects a move based on visit counts.
+        """
+        action_probs = self.mcts.get_action_probs(board, temp=self.temperature)
+        # Sample or take argmax depending on temp
+        actions, probs = zip(*action_probs.items())
+        return random.choices(actions, weights=probs, k=1)[0]
