@@ -40,7 +40,8 @@ class NeuralEvaluator:
             policy = policy[0]  # shape: [num_moves]
 
             # Convert to list of (action, probability) pairs
-            action_priors = list(enumerate(policy))
+            legal_moves = board.get_legal_move_indices()
+            action_priors = [(i, policy[i]) for i in legal_moves]
 
             # Return the action priors and scalar value
             return action_priors, value.item()

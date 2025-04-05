@@ -83,6 +83,9 @@ class GomokuBoard:
             return not win  # it's a draw if nobody won
         return False
 
+    def get_legal_move_indices(self):
+        return [self.move_to_index(r, c) for (r, c) in self.get_legal_moves()]
+
     def get_winner(self):
         win, winner = self.check_win()
         return winner if win else None
