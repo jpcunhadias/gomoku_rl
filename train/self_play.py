@@ -34,7 +34,10 @@ class SelfPlayRunner:
 
     def play_game(self):
         board = self.game_cls()
-        mcts = self.mcts_cls(self.evaluator, self.num_simulations)
+        mcts = self.mcts_cls(
+            evaluator_fn=self.evaluator,
+            n_simulations=self.num_simulations
+        )
         mcts.root = TreeNode()
 
         game_data = []
