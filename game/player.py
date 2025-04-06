@@ -1,15 +1,12 @@
 import random
 from typing import Tuple, Protocol, Any
 
-import numpy as np
-
 from game.gomoku import GomokuBoard
 from mcts.mcts import MCTS
 
 
 class Player(Protocol):
-    def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
-        ...
+    def get_action(self, board: GomokuBoard) -> Tuple[int, int]: ...
 
 
 class RandomPlayer:
@@ -31,7 +28,9 @@ class HumanPlayer:
     def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
         while True:
             try:
-                move_str = input(f"Player {self.player_id}, enter your move as 'row,col': ")
+                move_str = input(
+                    f"Player {self.player_id}, enter your move as 'row,col': "
+                )
                 row, col = map(int, move_str.strip().split(","))
                 if board.is_legal_move(row, col):
                     return (row, col)

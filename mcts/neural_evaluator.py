@@ -14,7 +14,9 @@ class NeuralEvaluator:
         """
         Explicitly evaluates a GomokuBoard, returning legal move priors and value.
         """
-        tensor_input = board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
+        tensor_input = (
+            board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
+        )
 
         with torch.no_grad():
             policy_logits, value = self.model(tensor_input)
@@ -29,7 +31,9 @@ class NeuralEvaluator:
         Evaluates a board using the policy-value network.
         Returns a list of (legal_move, probability) pairs and a scalar value.
         """
-        tensor_input = board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
+        tensor_input = (
+            board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
+        )
 
         with torch.no_grad():
             policy_logits, value = self.model(tensor_input)

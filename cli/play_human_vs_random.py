@@ -1,4 +1,4 @@
-from game.gomoku import GomokuBoard, GomokuGameManager
+from game.gomoku import GomokuGameManager
 from game.player import HumanPlayer, RandomPlayer
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ def main():
     print("Starting AlphaZero training loop")
 
     # Select device
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
     # Initialize model
@@ -25,5 +25,5 @@ def main():
     trainer.train()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

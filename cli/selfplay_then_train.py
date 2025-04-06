@@ -12,7 +12,7 @@ import torch
 def main():
     print("Self-play + training (CPU test)")
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
     # Model and evaluator
@@ -28,12 +28,12 @@ def main():
         mcts_cls=MCTS,
         evaluator=evaluator,
         buffer=buffer,
-        num_simulations=50,
+        num_simulations=800,
         temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
-        verbose=False
+        verbose=False,
     )
 
-    for i in range(3):
+    for i in range(50):
         print(f"→ Self-play game {i + 1}")
         runner.play_game()
 
