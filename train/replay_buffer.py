@@ -19,7 +19,9 @@ class ReplayBuffer:
         if overflow > 0:
             self.buffer = self.buffer[overflow:]
 
-    def sample(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def sample(
+        self, batch_size: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Returns a batch of (state, policy, value) as PyTorch tensors.
         """

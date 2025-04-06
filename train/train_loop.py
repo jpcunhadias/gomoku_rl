@@ -5,7 +5,7 @@ import torch.optim as optim
 
 
 class AlphaZeroTrainer:
-    def __init__(self, model, replay_buffer, config, device='cpu'):
+    def __init__(self, model, replay_buffer, config, device="cpu"):
         """
         AlphaZero training loop for Gomoku.
 
@@ -24,7 +24,7 @@ class AlphaZeroTrainer:
         self.save_path = config.save_path
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
-        self.policy_loss_fn = nn.KLDivLoss(reduction='batchmean')
+        self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
         self.value_loss_fn = nn.MSELoss()
 
     def compute_loss(self, policy_logits, target_policy, value_pred, target_value):
@@ -53,7 +53,9 @@ class AlphaZeroTrainer:
             epoch_value_loss = 0
 
             for step in range(self.steps_per_epoch):
-                states, target_policies, target_values = self.replay_buffer.sample(self.batch_size)
+                states, target_policies, target_values = self.replay_buffer.sample(
+                    self.batch_size
+                )
 
                 states = states.to(self.device)
                 target_policies = target_policies.to(self.device)
@@ -63,7 +65,9 @@ class AlphaZeroTrainer:
 
                 self.optimizer.zero_grad()
                 logits, value_pred = self.model(states)
-                loss, p_loss, v_loss = self.compute_loss(logits, target_policies, value_pred, target_values)
+                loss, p_loss, v_loss = self.compute_loss(
+                    logits, target_policies, value_pred, target_values
+                )
                 loss.backward()
                 self.optimizer.step()
 
@@ -72,7 +76,9 @@ class AlphaZeroTrainer:
 
             avg_p_loss = epoch_policy_loss / self.steps_per_epoch
             avg_v_loss = epoch_value_loss / self.steps_per_epoch
-            print(f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}")
+            print(
+                f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}"
+            )
 
             self.save_checkpoint(epoch)
 
@@ -82,10 +88,14 @@ class AlphaZeroTrainer:
         """
         os.makedirs(os.path.dirname(self.save_path), exist_ok=True)
         checkpoint = {
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'epoch': epoch,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "epoch": epoch,
         }
-        path = self.save_path if epoch is None else self.save_path.replace(".pth", f"_epoch{epoch}.pth")
+        path = (
+            self.save_path
+            if epoch is None
+            else self.save_path.replace(".pth", f"_epoch{epoch}.pth")
+        )
         torch.save(checkpoint, path)
         print(f"Checkpoint saved to: {path}")

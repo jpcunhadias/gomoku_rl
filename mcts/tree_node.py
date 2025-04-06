@@ -4,7 +4,12 @@ import numpy as np
 
 
 class TreeNode:
-    def __init__(self, parent: Optional["TreeNode"] = None, prior: float = 1.0, action_taken: Any = None):
+    def __init__(
+        self,
+        parent: Optional["TreeNode"] = None,
+        prior: float = 1.0,
+        action_taken: Any = None,
+    ):
         self.parent: Optional["TreeNode"] = parent
         self.children: Dict[Any, "TreeNode"] = {}
         self.n_visits: int = 0
@@ -23,7 +28,9 @@ class TreeNode:
         """Add child nodes for all legal actions with prior probabilities."""
         for action, prob in action_priors:
             if action not in self.children:
-                self.children[action] = TreeNode(parent=self, prior=prob, action_taken=action)
+                self.children[action] = TreeNode(
+                    parent=self, prior=prob, action_taken=action
+                )
 
     def select_child(self, c_puct: float) -> Tuple[Any, "TreeNode"]:
         """Select child with highest PUCT score."""

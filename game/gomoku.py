@@ -5,7 +5,9 @@ class GomokuBoard:
     def __init__(self, board_size=15, n_in_row=5):
         self.board_size = board_size
         self.n_in_row = n_in_row
-        self.board = np.zeros((board_size, board_size), dtype=np.int8)  # 0=empty, 1=player1, 2=player2
+        self.board = np.zeros(
+            (board_size, board_size), dtype=np.int8
+        )  # 0=empty, 1=player1, 2=player2
         self.current_player = 1
         self.last_move = None
 
@@ -48,7 +50,7 @@ class GomokuBoard:
             (1, 0),  # Down
             (0, 1),  # Right
             (1, 1),  # Diagonal down-right
-            (1, -1)  # Diagonal down-left
+            (1, -1),  # Diagonal down-left
         ]
 
         last_row, last_col = self.last_move
@@ -59,14 +61,22 @@ class GomokuBoard:
 
             # Check in the positive direction
             r, c = last_row + dr, last_col + dc
-            while 0 <= r < self.board_size and 0 <= c < self.board_size and self.board[r, c] == player:
+            while (
+                0 <= r < self.board_size
+                and 0 <= c < self.board_size
+                and self.board[r, c] == player
+            ):
                 count += 1
                 r += dr
                 c += dc
 
             # Check in the negative direction
             r, c = last_row - dr, last_col - dc
-            while 0 <= r < self.board_size and 0 <= c < self.board_size and self.board[r, c] == player:
+            while (
+                0 <= r < self.board_size
+                and 0 <= c < self.board_size
+                and self.board[r, c] == player
+            ):
                 count += 1
                 r -= dr
                 c -= dc
@@ -96,7 +106,9 @@ class GomokuBoard:
 
         # Player channels
         state[0] = (self.board == self.current_player).astype(np.float32)
-        state[1] = (self.board == (2 if self.current_player == 1 else 1)).astype(np.float32)
+        state[1] = (self.board == (2 if self.current_player == 1 else 1)).astype(
+            np.float32
+        )
 
         # Last move channel
         if self.last_move:

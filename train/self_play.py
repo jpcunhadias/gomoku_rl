@@ -9,17 +9,17 @@ from mcts.tree_node import TreeNode
 
 class SelfPlayRunner:
     def __init__(
-            self,
-            game_cls,
-            mcts_cls,
-            evaluator,
-            buffer,
-            num_simulations=800,
-            dirichlet_alpha=0.3,
-            dirichlet_epsilon=0.25,
-            temperature_schedule=None,
-            augment_fn=None,
-            verbose=False,
+        self,
+        game_cls,
+        mcts_cls,
+        evaluator,
+        buffer,
+        num_simulations=800,
+        dirichlet_alpha=0.3,
+        dirichlet_epsilon=0.25,
+        temperature_schedule=None,
+        augment_fn=None,
+        verbose=False,
     ):
         self.game_cls = game_cls
         self.mcts_cls = mcts_cls
@@ -35,8 +35,7 @@ class SelfPlayRunner:
     def play_game(self):
         board = self.game_cls()
         mcts = self.mcts_cls(
-            evaluator_fn=self.evaluator,
-            n_simulations=self.num_simulations
+            evaluator_fn=self.evaluator, n_simulations=self.num_simulations
         )
         mcts.root = TreeNode()
 
@@ -91,10 +90,9 @@ class SelfPlayRunner:
         noise = np.random.dirichlet([self.dirichlet_alpha] * len(actions))
         noisy_probs = {}
         for a, n in zip(actions, noise):
-            noisy_probs[a] = (
-                    (1 - self.dirichlet_epsilon) * action_probs[a] +
-                    self.dirichlet_epsilon * n
-            )
+            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[
+                a
+            ] + self.dirichlet_epsilon * n
         return noisy_probs
 
     def _dict_to_policy_vector(self, action_probs, legal_moves):
