@@ -21,7 +21,7 @@ if __name__ == "__main__":
         buffer=buffer,
         num_simulations=50,  # for fast test
         temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
-        verbose=False, # Set to True for detailed output
+        verbose=True, # Set to True for detailed output
     )
 
     print("Running one self-play game...")

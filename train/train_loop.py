@@ -24,7 +24,7 @@ class AlphaZeroTrainer:
         self.save_path = config.save_path
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
-        self.policy_loss_fn = nn.CrossEntropyLoss()
+        self.policy_loss_fn = nn.KLDivLoss(reduction='batchmean')
         self.value_loss_fn = nn.MSELoss()
 
     def compute_loss(self, policy_logits, target_policy, value_pred, target_value):
@@ -53,11 +53,13 @@ class AlphaZeroTrainer:
             epoch_value_loss = 0
 
             for step in range(self.steps_per_epoch):
-                states, target_policies, target_values = self.replay_buffer.sample_batch(self.batch_size)
+                states, target_policies, target_values = self.replay_buffer.sample(self.batch_size)
 
                 states = states.to(self.device)
                 target_policies = target_policies.to(self.device)
                 target_values = target_values.to(self.device)
+
+                target_policies = target_policies.view(-1, 225)
 
                 self.optimizer.zero_grad()
                 logits, value_pred = self.model(states)
