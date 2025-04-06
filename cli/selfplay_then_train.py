@@ -1,0 +1,48 @@
+from game.gomoku import GomokuBoard
+from mcts.mcts import MCTS
+from mcts.neural_evaluator import NeuralEvaluator
+from model.policy_value_net import PolicyValueNet
+from train.replay_buffer import ReplayBuffer
+from train.self_play import SelfPlayRunner
+from train.train_loop import AlphaZeroTrainer
+from train.config import config
+import torch
+
+
+def main():
+    print("Self-play + training (CPU test)")
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Using device: {device}")
+
+    # Model and evaluator
+    model = PolicyValueNet(board_size=15)
+    evaluator = NeuralEvaluator(model)
+
+    # Shared buffer
+    buffer = ReplayBuffer(max_size=config.replay_buffer_size)
+
+    # Self-play
+    runner = SelfPlayRunner(
+        game_cls=GomokuBoard,
+        mcts_cls=MCTS,
+        evaluator=evaluator,
+        buffer=buffer,
+        num_simulations=50,
+        temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
+        verbose=False
+    )
+
+    for i in range(3):
+        print(f"→ Self-play game {i + 1}")
+        runner.play_game()
+
+    print(f"\nBuffer filled with {len(buffer)} samples")
+
+    # Train
+    trainer = AlphaZeroTrainer(model, buffer, config, device)
+    trainer.train()
+
+
+if __name__ == "__main__":
+    main()
