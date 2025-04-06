@@ -1,73 +1,25 @@
-altair==5.5.0
-attrs==25.3.0
-blinker==1.9.0
-brotli
-cachetools==5.5.2
-captum==0.8.0
-certifi
-charset-normalizer
-click==8.1.8
-cloudpickle==3.1.1
-contourpy
-cycler
-exceptiongroup==1.2.2
-filelock
-fonttools
-fsspec==2025.3.2
-gitdb==4.0.12
-GitPython==3.1.44
-gmpy2
-idna
-importlib-resources
-iniconfig==2.1.0
-Jinja2
-joblib==1.4.2
-jsonschema==4.23.0
-jsonschema-specifications==2024.10.1
-kiwisolver
-llvmlite==0.43.0
-MarkupSafe
-matplotlib==3.9.2
-mpmath
-narwhals==1.33.0
-networkx
-numba==0.60.0
-numpy==1.26.4
-packaging
-pandas==2.2.3
-pillow
-pluggy==1.5.0
-protobuf==5.29.4
-pyarrow==19.0.1
-pydeck==0.9.1
-pyparsing
-PySocks
-pytest==8.3.5
-python-dateutil
-pytz==2025.2
-PyYAML
-referencing==0.36.2
-requests
-rpds-py==0.24.0
-ruff==0.11.4
-scikit-learn==1.6.1
-scipy==1.13.1
-shap==0.47.1
-six
-slicer==0.0.8
-smmap==5.0.2
-streamlit==1.44.1
-sympy==1.13.1
-tenacity==9.1.2
-threadpoolctl==3.6.0
-toml==0.10.2
-tomli==2.2.1
-torch==2.5.1
-torchvision==0.20.1
-tornado
-tqdm==4.67.1
-typing-extensions
-tzdata==2025.2
-unicodedata2
-urllib3
-zipp
+# Core libraries
+numpy>=1.20
+matplotlib>=3.5
+
+# Deep learning
+torch>=1.13
+torchvision>=0.14
+
+# Explainability
+captum>=0.6        # PyTorch-based XAI
+shap>=0.41         # Model-agnostic SHAP explanations
+
+# Interactive visualization (optional but recommended)
+streamlit>=1.20    # Optional for interactive front-end
+
+# Jupyter environment (for notebooks or prototyping)
+jupyterlab>=3.0
+ipython>=7.0
+
+# Utilities
+tqdm>=4.64
+scikit-learn>=1.1  # For evaluation metrics, optional
+
+# Formatting and linting
+ruff>=0.0.14
