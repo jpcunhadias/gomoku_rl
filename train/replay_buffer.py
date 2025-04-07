@@ -34,8 +34,11 @@ class ReplayBuffer:
             torch.tensor(values, dtype=torch.float32).unsqueeze(1),  # Shape: [B, 1]
         )
 
-    def load(self, filepath: str):
-        self.buffer = torch.load(filepath)
+    @classmethod
+    def load_from_file(cls, filepath: str, max_size: int):
+        buffer = cls(max_size=max_size)
+        buffer.buffer = torch.load(filepath, weights_only=False)
+        return buffer
 
     def save(self, path: str):
         """
