@@ -49,7 +49,8 @@ class ReplayBuffer:
         Save the buffer using Python's pickle to avoid torch-specific serialization issues.
         """
         import pickle
-        with open(path, "wb") as f:
+        with open(path, "wb") as f:  # Open the file in binary write mode
+            # noinspection PyTypeChecker
             pickle.dump(self.buffer, f)
 
     def __len__(self):
