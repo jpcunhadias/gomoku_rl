@@ -99,3 +99,11 @@ class AlphaZeroTrainer:
         )
         torch.save(checkpoint, path)
         print(f"Checkpoint saved to: {path}")
+
+
+def run_training(model, buffer, config):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    trainer = AlphaZeroTrainer(model, buffer, config, device)
+    trainer.train()

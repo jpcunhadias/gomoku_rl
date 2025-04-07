@@ -65,6 +65,26 @@ class PolicyValueNet(nn.Module):
 
         return policy, value
 
+    @classmethod
+    def load_from_checkpoint(cls, path, board_size=15, num_blocks=5, device=None):
+        """
+        Loads a model from a checkpoint that contains 'model_state_dict'.
+        Args:
+            path (str): Path to the saved .pth file
+            board_size (int): Board size used during training
+            num_blocks (int): Number of residual blocks
+            device (str or torch.device): 'cpu' or 'cuda'
+        Returns:
+            PolicyValueNet instance with loaded weights
+        """
+        device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        checkpoint = torch.load(path, map_location=device)
+        model = cls(board_size=board_size, num_blocks=num_blocks)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        model.to(device)
+        model.eval()  # Optional: set to eval mode by default
+        return model
+
 
 if __name__ == "__main__":
     ...

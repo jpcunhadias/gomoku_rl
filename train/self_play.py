@@ -1,10 +1,18 @@
+import os
 import random
 
 import numpy as np
 import torch
+from tqdm import trange
 
 from game import encoder
+from game.gomoku import GomokuBoard
+from mcts.mcts import MCTS
+from mcts.neural_evaluator import NeuralEvaluator
 from mcts.tree_node import TreeNode
+from model.policy_value_net import PolicyValueNet
+from train.config import get_config
+from train.replay_buffer import ReplayBuffer
 
 
 class SelfPlayRunner:
@@ -101,3 +109,40 @@ class SelfPlayRunner:
         for (i, j), prob in action_probs.items():
             pi[i, j] = prob
         return pi
+
+
+def run_selfplay(num_games=50, mcts_simulations=800, buffer_save_path=None):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    config = get_config()
+
+    # Initialize model and evaluator
+    model = PolicyValueNet(board_size=15)
+    evaluator = NeuralEvaluator(model)
+
+    # Initialize replay buffer
+    buffer = ReplayBuffer(max_size=config.replay_buffer_size)
+
+    # Set up runner
+    runner = SelfPlayRunner(
+        game_cls=GomokuBoard,
+        mcts_cls=MCTS,
+        evaluator=evaluator,
+        buffer=buffer,
+        num_simulations=mcts_simulations,
+        temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
+        verbose=False,
+    )
+
+    for i in trange(num_games, desc="Self-play games"):
+        runner.play_game()
+
+    print(f"\nBuffer filled with {len(buffer)} samples")
+
+    if buffer_save_path:
+        os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
+        buffer.save(buffer_save_path)
+        print(f"Replay buffer saved to {buffer_save_path}")
+
+    return model, buffer
