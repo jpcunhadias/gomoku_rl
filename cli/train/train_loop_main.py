@@ -2,7 +2,10 @@ import torch
 from model.policy_value_net import PolicyValueNet
 from train.replay_buffer import ReplayBuffer
 from train.train_loop import AlphaZeroTrainer
-from train.config import config
+from train.config import get_config
+
+# Load configuration
+config = get_config()
 
 
 def main():

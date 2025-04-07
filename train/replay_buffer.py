@@ -20,7 +20,7 @@ class ReplayBuffer:
             self.buffer = self.buffer[overflow:]
 
     def sample(
-        self, batch_size: int
+            self, batch_size: int
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Returns a batch of (state, policy, value) as PyTorch tensors.
@@ -36,15 +36,21 @@ class ReplayBuffer:
 
     @classmethod
     def load_from_file(cls, filepath: str, max_size: int):
+        import pickle
+        with open(filepath, "rb") as f:
+            buffer_data = pickle.load(f)
+
         buffer = cls(max_size=max_size)
-        buffer.buffer = torch.load(filepath, weights_only=False)
+        buffer.buffer = buffer_data
         return buffer
 
     def save(self, path: str):
         """
-        Save the buffer to a file.
+        Save the buffer using Python's pickle to avoid torch-specific serialization issues.
         """
-        torch.save(self.buffer, path)
+        import pickle
+        with open(path, "wb") as f:
+            pickle.dump(self.buffer, f)
 
     def __len__(self):
         return len(self.buffer)

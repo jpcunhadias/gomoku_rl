@@ -1,5 +1,5 @@
 import os
-
+import sys
 from train.config import get_config
 from train.self_play import run_selfplay
 
@@ -11,6 +11,8 @@ try:
 except ImportError:
     pass
 
+os.chdir("/content/gomoku_rl")
+sys.path.append(".")
 # Load config
 config = get_config()
 
@@ -20,6 +22,7 @@ buffer_path = "/content/drive/MyDrive/gomoku_data/replay_buffer.pkl"
 os.makedirs(os.path.dirname(buffer_path), exist_ok=True)
 
 model, buffer = run_selfplay(
+    config=config,
     num_games=50,
     mcts_simulations=200,
     buffer_save_path=buffer_path,

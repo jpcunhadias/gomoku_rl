@@ -11,23 +11,22 @@ from mcts.mcts import MCTS
 from mcts.neural_evaluator import NeuralEvaluator
 from mcts.tree_node import TreeNode
 from model.policy_value_net import PolicyValueNet
-from train.config import get_config
 from train.replay_buffer import ReplayBuffer
 
 
 class SelfPlayRunner:
     def __init__(
-        self,
-        game_cls,
-        mcts_cls,
-        evaluator,
-        buffer,
-        num_simulations=800,
-        dirichlet_alpha=0.3,
-        dirichlet_epsilon=0.25,
-        temperature_schedule=None,
-        augment_fn=None,
-        verbose=False,
+            self,
+            game_cls,
+            mcts_cls,
+            evaluator,
+            buffer,
+            num_simulations=800,
+            dirichlet_alpha=0.3,
+            dirichlet_epsilon=0.25,
+            temperature_schedule=None,
+            augment_fn=None,
+            verbose=False,
     ):
         self.game_cls = game_cls
         self.mcts_cls = mcts_cls
@@ -111,12 +110,7 @@ class SelfPlayRunner:
         return pi
 
 
-def run_selfplay(num_games=50, mcts_simulations=800, buffer_save_path=None):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
-
-    config = get_config()
-
+def run_selfplay(config, num_games=50, mcts_simulations=800, buffer_save_path=None):
     # Initialize model and evaluator
     model = PolicyValueNet(board_size=15)
     evaluator = NeuralEvaluator(model)
