@@ -19,7 +19,8 @@ buffer_path = "/content/drive/MyDrive/gomoku_data/replay_buffer.pkl"
 
 # Load replay buffer from file
 print("Loading replay buffer...")
-buffer = ReplayBuffer.load_from_file(buffer_path, max_size=config.replay_buffer_size)
+buffer = ReplayBuffer.load(buffer_path)
+print(f"Replay buffer loaded with {len(buffer)} samples.")
 print(f"Replay buffer loaded with {len(buffer)} samples.")
 
 # Initialize a new model (or replace this line with load_from_checkpoint if needed)

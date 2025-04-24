@@ -13,7 +13,7 @@ config = get_config()
 
 
 def main():
-    print("Self-play + training (CPU test)")
+    print("Self-play + training script started.")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
@@ -22,8 +22,8 @@ def main():
     model = PolicyValueNet(board_size=15)
     evaluator = NeuralEvaluator(model)
 
-    # Shared buffer
-    buffer = ReplayBuffer(max_size=config.replay_buffer_size)
+    buffer = ReplayBuffer.load("checkpoints/replay_buffer.pkl")
+    print(f"Loaded buffer with {len(buffer)} samples.")
 
     # Self-play
     runner = SelfPlayRunner(
@@ -41,6 +41,8 @@ def main():
         runner.play_game()
 
     print(f"\nBuffer filled with {len(buffer)} samples")
+    buffer.save("checkpoints/replay_buffer.pkl")
+    print("Saved buffer after self-play.")
 
     # Train
     trainer = AlphaZeroTrainer(model, buffer, config, device)
