@@ -26,6 +26,8 @@ class AlphaZeroTrainer:
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
         self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
         self.value_loss_fn = nn.MSELoss()
+        self.best_value_loss = float("inf")
+        self.best_epoch = None
 
     def compute_loss(self, policy_logits, target_policy, value_pred, target_value):
         """
@@ -80,7 +82,13 @@ class AlphaZeroTrainer:
                 f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}"
             )
 
-            self.save_checkpoint(epoch)
+            if avg_v_loss < self.best_value_loss:
+                self.best_value_loss = avg_v_loss
+                self.best_epoch = epoch
+                self.save_checkpoint(epoch="best")
+                print(f"Best model updated (value loss = {avg_v_loss:.4f}) → saved as best")
+        print(f"\nTraining complete. Best value loss = {self.best_value_loss:.4f} at epoch {self.best_epoch}")
+        return self.best_epoch, self.best_value_loss
 
     def save_checkpoint(self, epoch=None):
         """
