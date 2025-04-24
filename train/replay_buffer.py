@@ -1,5 +1,6 @@
 import random
 from typing import List, Tuple
+
 import torch
 
 
@@ -35,23 +36,16 @@ class ReplayBuffer:
         )
 
     @classmethod
-    def load_from_file(cls, filepath: str, max_size: int):
+    def load(cls, path: str):
         import pickle
-        with open(filepath, "rb") as f:
-            buffer_data = pickle.load(f)
-
-        buffer = cls(max_size=max_size)
-        buffer.buffer = buffer_data
-        return buffer
+        with open(path, "rb") as f:
+            return pickle.load(f)
 
     def save(self, path: str):
-        """
-        Save the buffer using Python's pickle to avoid torch-specific serialization issues.
-        """
         import pickle
-        with open(path, "wb") as f:  # Open the file in binary write mode
+        with open(path, "wb") as f:
             # noinspection PyTypeChecker
-            pickle.dump(self.buffer, f)
+            pickle.dump(self, f)
 
     def __len__(self):
         return len(self.buffer)
