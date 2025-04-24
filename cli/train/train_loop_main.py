@@ -1,8 +1,11 @@
+import pickle
+
 import torch
-from model.policy_value_net import PolicyValueNet
+
 from train.replay_buffer import ReplayBuffer
-from train.train_loop import AlphaZeroTrainer
+from model.policy_value_net import PolicyValueNet
 from train.config import get_config
+from train.train_loop import AlphaZeroTrainer
 
 # Load configuration
 config = get_config()
@@ -18,8 +21,8 @@ def main():
     # Initialize model
     model = PolicyValueNet()  # update if your net requires more args
 
-    # Load or create replay buffer
-    replay_buffer = ReplayBuffer(config.replay_buffer_size)
+    replay_buffer = ReplayBuffer.load("checkpoints/replay_buffer.pkl")
+    print(f"Loaded buffer with {len(replay_buffer)} samples")
 
     # Initialize trainer
     trainer = AlphaZeroTrainer(model, replay_buffer, config, device=device)
