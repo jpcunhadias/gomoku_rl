@@ -21,7 +21,7 @@ class ReplayBuffer:
             self.buffer = self.buffer[overflow:]
 
     def sample(
-            self, batch_size: int
+        self, batch_size: int
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Returns a batch of (state, policy, value) as PyTorch tensors.
@@ -38,11 +38,13 @@ class ReplayBuffer:
     @classmethod
     def load(cls, path: str):
         import pickle
+
         with open(path, "rb") as f:
             return pickle.load(f)
 
     def save(self, path: str):
         import pickle
+
         with open(path, "wb") as f:
             # noinspection PyTypeChecker
             pickle.dump(self, f)

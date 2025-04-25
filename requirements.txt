@@ -23,3 +23,6 @@ scikit-learn>=1.1  # For evaluation metrics, optional
 
 # Formatting and linting
 ruff>=0.0.14
+
+# testing
+pytest

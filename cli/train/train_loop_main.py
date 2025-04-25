@@ -1,5 +1,3 @@
-import pickle
-
 import torch
 
 from train.replay_buffer import ReplayBuffer

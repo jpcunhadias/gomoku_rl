@@ -25,7 +25,7 @@ class AlphaZeroTrainer:
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
         self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
-        self.value_loss_fn = nn.MSELoss()
+        self.value_loss_fn = nn.BCEWithLogitsLoss()
         self.best_value_loss = float("inf")
         self.best_epoch = None
 
@@ -40,19 +40,32 @@ class AlphaZeroTrainer:
             target_value (Tensor): Actual game result (-1, 0, 1).
         """
         policy_loss = self.policy_loss_fn(policy_logits, target_policy)
-        value_loss = self.value_loss_fn(value_pred.squeeze(), target_value)
-        total_loss = policy_loss + value_loss
+        value_loss = self.value_loss_fn(
+            value_pred.view(-1), target_value.float().view(-1)
+        )
+
+        # total_loss = policy_loss + value_loss
+        total_loss = policy_loss * 0.1 + value_loss * 1.0
+
         return total_loss, policy_loss.item(), value_loss.item()
 
-    def train(self):
+    def train(self, debug=False):
         """
         Main training loop.
         """
         self.model.train()
 
+        # Create log files if debugging
+        if debug:
+            loss_log_path = os.path.join("checkpoints", "train_loss_summary.log")
+            stats_log_path = os.path.join("checkpoints", "value_pred_stats.log")
+            grad_log_path = os.path.join("checkpoints", "gradient_debug.log")
+            value_debug_path = os.path.join("checkpoints", "value_pred_debug.log")
+
         for epoch in range(1, self.epochs + 1):
             epoch_policy_loss = 0
             epoch_value_loss = 0
+            value_preds_this_epoch = []
 
             for step in range(self.steps_per_epoch):
                 states, target_policies, target_values = self.replay_buffer.sample(
@@ -61,16 +74,55 @@ class AlphaZeroTrainer:
 
                 states = states.to(self.device)
                 target_policies = target_policies.to(self.device)
-                target_values = target_values.to(self.device)
+                target_values = ((target_values + 1) / 2).to(self.device)
 
                 target_policies = target_policies.view(-1, 225)
 
                 self.optimizer.zero_grad()
                 logits, value_pred = self.model(states)
+
+                # Collect stats
+                if debug:
+                    with torch.no_grad():
+                        value_mean = value_pred.mean().item()
+                        value_std = value_pred.std().item()
+                        value_preds_this_epoch.append((value_mean, value_std))
+
+                    # Log value head predictions (first 8 examples only)
+                    with open(value_debug_path, "a") as f:
+                        f.write(f"\nEpoch {epoch}, Step {step}:\n")
+                        preds = value_pred.detach().cpu().squeeze().tolist()
+                        targets = target_values.detach().cpu().squeeze().tolist()
+                        for pred, target in zip(preds[:8], targets[:8]):
+                            pred_val = (
+                                pred[0] if isinstance(pred, (list, tuple)) else pred
+                            )
+                            target_val = (
+                                target[0]
+                                if isinstance(target, (list, tuple))
+                                else target
+                            )
+                            f.write(
+                                f"  z: {float(target_val):.4f}, v: {float(pred_val):.4f}\n"
+                            )
+
                 loss, p_loss, v_loss = self.compute_loss(
                     logits, target_policies, value_pred, target_values
                 )
                 loss.backward()
+
+                # Gradient norms
+                if debug:
+                    with open(grad_log_path, "a") as f:
+                        f.write(f"\nEpoch {epoch}, Step {step}:\n")
+                        for name, param in self.model.named_parameters():
+                            if param.grad is not None:
+                                norm = param.grad.norm().item()
+                                if "value" in name:
+                                    f.write(f"[Value]  {name}: {norm:.6f}\n")
+                                elif "policy" in name:
+                                    f.write(f"[Policy] {name}: {norm:.6f}\n")
+
                 self.optimizer.step()
 
                 epoch_policy_loss += p_loss
@@ -78,6 +130,25 @@ class AlphaZeroTrainer:
 
             avg_p_loss = epoch_policy_loss / self.steps_per_epoch
             avg_v_loss = epoch_value_loss / self.steps_per_epoch
+
+            if debug:
+                with open(loss_log_path, "a") as f:
+                    f.write(
+                        f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}\n"
+                    )
+
+                # Aggregate value stats for this epoch
+                mean_of_means = sum(x[0] for x in value_preds_this_epoch) / len(
+                    value_preds_this_epoch
+                )
+                mean_of_stds = sum(x[1] for x in value_preds_this_epoch) / len(
+                    value_preds_this_epoch
+                )
+                with open(stats_log_path, "a") as f:
+                    f.write(
+                        f"Epoch {epoch}: value_pred mean = {mean_of_means:.4f}, std = {mean_of_stds:.4f}\n"
+                    )
+
             print(
                 f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}"
             )
@@ -86,8 +157,13 @@ class AlphaZeroTrainer:
                 self.best_value_loss = avg_v_loss
                 self.best_epoch = epoch
                 self.save_checkpoint(epoch="best")
-                print(f"Best model updated (value loss = {avg_v_loss:.4f}) → saved as best")
-        print(f"\nTraining complete. Best value loss = {self.best_value_loss:.4f} at epoch {self.best_epoch}")
+                print(
+                    f"Best model updated (value loss = {avg_v_loss:.4f}) → saved as best"
+                )
+
+        print(
+            f"\nTraining complete. Best value loss = {self.best_value_loss:.4f} at epoch {self.best_epoch}"
+        )
         return self.best_epoch, self.best_value_loss
 
     def save_checkpoint(self, epoch=None):

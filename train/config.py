@@ -1,4 +1,3 @@
-import os
 from types import SimpleNamespace
 
 
@@ -9,7 +8,5 @@ def get_config():
         epochs=50,
         steps_per_epoch=100,
         replay_buffer_size=10000,
-        save_path="/content/drive/MyDrive/gomoku_checkpoints/policy_value_net.pth"
+        save_path="checkpoints/policy_value_net.pth",
     )
-
-

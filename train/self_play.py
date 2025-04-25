@@ -83,7 +83,7 @@ class SelfPlayRunner:
         final_data = []
 
         for state_tensor, pi, player in game_data:
-            z = winner * player
+            z = 1.0 if winner == player else 0.0
             pi_tensor = torch.from_numpy(pi)
             final_data.append((state_tensor, pi_tensor, z))
 
