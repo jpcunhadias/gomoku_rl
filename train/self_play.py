@@ -12,21 +12,22 @@ from mcts.neural_evaluator import NeuralEvaluator
 from mcts.tree_node import TreeNode
 from model.policy_value_net import PolicyValueNet
 from train.replay_buffer import ReplayBuffer
+from train.augmentation import augment_board_state
 
 
 class SelfPlayRunner:
     def __init__(
-        self,
-        game_cls,
-        mcts_cls,
-        evaluator,
-        buffer,
-        num_simulations=800,
-        dirichlet_alpha=0.3,
-        dirichlet_epsilon=0.25,
-        temperature_schedule=None,
-        augment_fn=None,
-        verbose=False,
+            self,
+            game_cls,
+            mcts_cls,
+            evaluator,
+            buffer,
+            num_simulations=800,
+            dirichlet_alpha=0.3,
+            dirichlet_epsilon=0.25,
+            temperature_schedule=None,
+            augment_fn=None,
+            verbose=False,
     ):
         self.game_cls = game_cls
         self.mcts_cls = mcts_cls
@@ -90,7 +91,17 @@ class SelfPlayRunner:
         if self.augment_fn:
             final_data = self.augment_fn(final_data)
 
-        self.buffer.add(final_data)
+        augmented_data = []
+        for i, (state, policy, value) in enumerate(final_data):
+            augmented_state = augment_board_state(state)
+            augmented_data.append((augmented_state, policy, value))
+
+            # DEBUGGING: Uncomment to visualize augmented states
+            # if i < 3:
+            #     print(f"[Dry-Run] Sample {i}: Augmented State Shape: {augmented_state.shape}")
+            #     print(augmented_state[0])  # Print first channel for quick visual check
+
+        self.buffer.add(augmented_data)
 
     def _add_dirichlet_noise(self, action_probs):
         actions = list(action_probs.keys())
