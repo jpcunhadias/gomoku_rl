@@ -24,10 +24,10 @@ def main():
 
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["model_state_dict"])
-    model.to(device)
+    model = model.to(device)
     print(f"Loaded model from checkpoint: {checkpoint_path}")
 
-    evaluator = NeuralEvaluator(model)
+    evaluator = NeuralEvaluator(model, device)
 
     # === Load or initialize buffer ===
     buffer_path = "checkpoints/replay_buffer.pkl"
@@ -49,7 +49,7 @@ def main():
         verbose=False,
     )
 
-    for i in range(50):
+    for i in range(config["num_self_play_games"]):
         print(f"→ Self-play game {i + 1}")
         runner.play_game()
 
