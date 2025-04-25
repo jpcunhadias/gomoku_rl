@@ -18,14 +18,27 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    # Model and evaluator
+    # === Load model with trained value head ===
     model = PolicyValueNet(board_size=15)
+    checkpoint_path = "checkpoints/policy_value_net_epochbest.pth"
+
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    model.to(device)
+    print(f"Loaded model from checkpoint: {checkpoint_path}")
+
     evaluator = NeuralEvaluator(model)
 
-    buffer = ReplayBuffer.load("checkpoints/replay_buffer.pkl")
-    print(f"Loaded buffer with {len(buffer)} samples.")
+    # === Load or initialize buffer ===
+    buffer_path = "checkpoints/replay_buffer.pkl"
+    try:
+        buffer = ReplayBuffer.load(buffer_path)
+        print(f"Loaded buffer with {len(buffer)} samples.")
+    except FileNotFoundError:
+        print("No existing buffer found. Creating new buffer.")
+        buffer = ReplayBuffer(max_size=config.replay_buffer_size)
 
-    # Self-play
+    # === Self-play ===
     runner = SelfPlayRunner(
         game_cls=GomokuBoard,
         mcts_cls=MCTS,
@@ -41,10 +54,10 @@ def main():
         runner.play_game()
 
     print(f"\nBuffer filled with {len(buffer)} samples")
-    buffer.save("checkpoints/replay_buffer.pkl")
-    print("Saved buffer after self-play.")
+    buffer.save(buffer_path)
+    print(f"Replay buffer saved to: {buffer_path}")
 
-    # Train
+    # === Training ===
     trainer = AlphaZeroTrainer(model, buffer, config, device)
     trainer.train()
 
