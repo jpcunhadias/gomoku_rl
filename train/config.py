@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 def get_config():
     return SimpleNamespace(
+        num_self_play_games=50,
         batch_size=128,
         learning_rate=1e-3,
         epochs=50,
