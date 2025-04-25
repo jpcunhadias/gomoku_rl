@@ -23,6 +23,18 @@ class ResidualBlock(nn.Module):
         return F.relu(out)
 
 
+class ValueClassifierHead(nn.Module):
+    def __init__(self, input_size=15 * 15, hidden_size=128):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        return self.fc2(x)
+
+
 class PolicyValueNet(nn.Module):
     def __init__(self, board_size=15, num_blocks=5):
         super(PolicyValueNet, self).__init__()
@@ -42,8 +54,10 @@ class PolicyValueNet(nn.Module):
 
         # Value Head
         self.value_conv = nn.Conv2d(64, 1, kernel_size=1)
-        self.value_fc1 = nn.Linear(board_size * board_size, 128)
-        self.value_fc2 = nn.Linear(128, 1)
+        self.value_head = ValueClassifierHead(input_size=board_size * board_size)
+
+        # Initialize weights
+        self._init_weights()
 
     def forward(self, x):
         # Input Layer
@@ -59,11 +73,15 @@ class PolicyValueNet(nn.Module):
 
         # Value Head
         value = self.value_conv(x)
-        value = value.view(value.size(0), -1)  # Flatten the output
-        value = F.relu(self.value_fc1(value))
-        value = torch.tanh(self.value_fc2(value))  # Output in range [-1, 1]
+        value = self.value_head(value)
 
         return policy, value
+
+    def extract_value_features(self, x):
+        x = F.relu(self.bn_input(self.conv_input(x)))
+        x = self.residual_blocks(x)
+        value = self.value_conv(x)
+        return value.view(value.size(0), -1)  # Flatten
 
     @classmethod
     def load_from_checkpoint(cls, path, board_size=15, num_blocks=5, device=None):
@@ -84,6 +102,14 @@ class PolicyValueNet(nn.Module):
         model.to(device)
         model.eval()  # Optional: set to eval mode by default
         return model
+
+    def _init_weights(self):
+        nn.init.xavier_uniform_(self.policy_fc.weight)
+        nn.init.zeros_(self.policy_fc.bias)
+
+        # Access the submodule inside value_head
+        nn.init.xavier_uniform_(self.value_head.fc2.weight)
+        nn.init.zeros_(self.value_head.fc2.bias)
 
 
 if __name__ == "__main__":
