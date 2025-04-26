@@ -53,6 +53,7 @@ class MCTSPlayer:
         Runs MCTS simulations and selects a move based on visit counts.
         """
         action_probs = self.mcts.get_action_probs(board, temp=self.temperature)
+
         # Sample or take argmax depending on temp
         actions, probs = zip(*action_probs.items())
         return random.choices(actions, weights=probs, k=1)[0]

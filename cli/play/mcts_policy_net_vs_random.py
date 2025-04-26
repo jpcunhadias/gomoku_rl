@@ -3,6 +3,7 @@ from game.player import MCTSPlayer, RandomPlayer
 from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
 from mcts.neural_evaluator import NeuralEvaluator
+import random
 
 
 def play_mcts_net_vs_random():
@@ -25,7 +26,22 @@ def play_mcts_net_vs_random():
 
     while not board.is_terminal():
         board.render()
-        action = players[current_player].get_action(board)
+
+        if isinstance(players[current_player], MCTSPlayer):
+            # Special handling for MCTSPlayer
+            action_probs = players[current_player].mcts.get_action_probs(board,
+                                                                         temp=players[current_player].temperature)
+
+            if not action_probs:
+                print("[WARNING] No moves returned by MCTS. Picking random legal move.")
+                legal_moves = board.get_legal_moves()
+                action = random.choice(legal_moves)
+            else:
+                action = max(action_probs.items(), key=lambda x: x[1])[0]
+        else:
+            # For random or human players
+            action = players[current_player].get_action(board)
+
         if isinstance(action, int):
             action = board.index_to_move(action)
 
