@@ -8,7 +8,7 @@ from mcts.tree_node import TreeNode
 
 class MCTS:
     def __init__(
-        self, evaluator_fn: Callable, c_puct: float = 1.0, n_simulations: int = 800
+            self, evaluator_fn: Callable, c_puct: float = 1.0, n_simulations: int = 800
     ):
         """
         evaluator_fn: Callable that takes a board and returns (priors_dict, value)
@@ -29,40 +29,38 @@ class MCTS:
             self.root = TreeNode()  # reset tree if move not in children
 
     def run_simulation(self, root: TreeNode, board):
-        """
-        Runs a single MCTS simulation from the given root using the current board state.
-        """
         node = root
         state = board.clone()
 
         # Selection
         while not node.is_leaf():
             action, node = node.select_child(self.c_puct)
-            # If action is an integer, convert it to (row, col)
             if isinstance(action, int):
                 row, col = state.index_to_move(action)
-            # Otherwise, if it's already a tuple, use it directly
             elif isinstance(action, tuple):
                 row, col = action
             else:
-                raise TypeError("Action must be either an int or a tuple of (row, col)")
+                raise TypeError("Action must be either an int or a (row, col) tuple.")
 
             if not state.is_legal_move(row, col):
                 print(f"[DEBUG] Illegal move selected: {action} → ({row}, {col})")
-                print("Legal moves:", state.get_legal_moves())
+                print("[DEBUG] Current board:")
+                state.render()
+                print("[DEBUG] Legal moves:", state.get_legal_moves())
                 raise RuntimeError("MCTS selected an illegal move during simulation.")
 
             state.apply_move(row, col)
 
-        # Check for terminal state before expansion
+        # Check for terminal state
         if state.is_terminal():
             value = state.evaluate_terminal()  # +1 win, -1 loss, 0 draw
         else:
-            # Expansion & evaluation
             priors, value = self.evaluator_fn(state)
-            node.expand(priors)
 
-        # Backpropagate
+            legal_moves = state.get_legal_moves()
+
+            node.expand(priors, legal_moves)
+
         node.backpropagate(value)
 
     def get_action_probs(self, board, temp: float = 1e-3) -> Dict[Any, float]:
@@ -79,11 +77,12 @@ class MCTS:
 
         return self._normalize_counts(visit_counts, temp)
 
-    def _normalize_counts(
-        self, counts: Dict[Any, int], temp: float
-    ) -> Dict[Any, float]:
+    def _normalize_counts(self, counts: Dict[Any, int], temp: float) -> Dict[Any, float]:
+        if not counts:
+            # No legal moves available
+            return {}
+
         if temp <= 1e-3:
-            # Deterministic choice
             max_visits = max(counts.values())
             best_actions = [a for a, v in counts.items() if v == max_visits]
             best_action = random.choice(best_actions)

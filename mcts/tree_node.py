@@ -5,10 +5,10 @@ import numpy as np
 
 class TreeNode:
     def __init__(
-        self,
-        parent: Optional["TreeNode"] = None,
-        prior: float = 1.0,
-        action_taken: Any = None,
+            self,
+            parent: Optional["TreeNode"] = None,
+            prior: float = 1.0,
+            action_taken: Any = None,
     ):
         self.parent: Optional["TreeNode"] = parent
         self.children: Dict[Any, "TreeNode"] = {}
@@ -24,12 +24,16 @@ class TreeNode:
     def is_root(self) -> bool:
         return self.parent is None
 
-    def expand(self, action_priors: List[Tuple[Any, float]]):
-        """Add child nodes for all legal actions with prior probabilities."""
+    def expand(self, action_priors: List[Tuple[Any, float]], legal_moves: List[Any]):
+        """Expand the tree node with legal action priors only."""
+        legal_moves_set = set(legal_moves)
+
         for action, prob in action_priors:
-            if action not in self.children:
+            if action in legal_moves_set and action not in self.children:
                 self.children[action] = TreeNode(
-                    parent=self, prior=prob, action_taken=action
+                    parent=self,
+                    prior=prob,
+                    action_taken=action,
                 )
 
     def select_child(self, c_puct: float) -> Tuple[Any, "TreeNode"]:
