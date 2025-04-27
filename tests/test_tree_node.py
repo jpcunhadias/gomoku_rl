@@ -48,7 +48,9 @@ def test_select_child_returns_highest_puct():
 
 def test_backpropagate_updates_all_parents():
     root = TreeNode()
-    root.expand([("a", 1.0)])
+    action_priors = [("a", 1.0)]
+    legal_moves = ["a"]
+    root.expand(action_priors, legal_moves)
     child = root.children["a"]
 
     child.backpropagate(value=1.0)
