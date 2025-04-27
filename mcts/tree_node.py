@@ -5,10 +5,10 @@ import numpy as np
 
 class TreeNode:
     def __init__(
-            self,
-            parent: Optional["TreeNode"] = None,
-            prior: float = 1.0,
-            action_taken: Any = None,
+        self,
+        parent: Optional["TreeNode"] = None,
+        prior: float = 1.0,
+        action_taken: Any = None,
     ):
         self.parent: Optional["TreeNode"] = parent
         self.children: Dict[Any, "TreeNode"] = {}

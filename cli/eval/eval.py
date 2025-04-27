@@ -5,6 +5,9 @@ from game.gomoku import GomokuBoard
 from mcts.mcts import MCTS
 from mcts.neural_evaluator import NeuralEvaluator
 from model.policy_value_net import PolicyValueNet
+from torch.utils.tensorboard import SummaryWriter
+import os
+
 
 class UniformEvaluator:
     def __call__(self, board):
@@ -38,22 +41,33 @@ def evaluate_mcts_vs_mcts_pure(
 
     # Helper to create new MCTS players
     def create_mcts_player(evaluator_fn):
-        return MCTS(evaluator_fn=evaluator_fn, c_puct=1.0, n_simulations=num_simulations)
+        return MCTS(
+            evaluator_fn=evaluator_fn, c_puct=1.0, n_simulations=num_simulations
+        )
 
     # Stats
     model_wins = 0
     pure_mcts_wins = 0
     draws = 0
 
+    # Create a writer for evaluation logs
+    writer = SummaryWriter(log_dir=os.path.join("logs", "eval"))
+
     for game_idx in range(num_games):
         board = GomokuBoard(board_size)
 
         # Randomly assign who is model and who is pure
         if random.random() < 0.5:
-            players = [create_mcts_player(neural_evaluator), create_mcts_player(uniform_evaluator)]
+            players = [
+                create_mcts_player(neural_evaluator),
+                create_mcts_player(uniform_evaluator),
+            ]
             first_player_is_model = True
         else:
-            players = [create_mcts_player(uniform_evaluator), create_mcts_player(neural_evaluator)]
+            players = [
+                create_mcts_player(uniform_evaluator),
+                create_mcts_player(neural_evaluator),
+            ]
             first_player_is_model = False
 
         current_player_idx = 0
@@ -63,7 +77,9 @@ def evaluate_mcts_vs_mcts_pure(
             move_probs = mcts.get_action_probs(board, temp=1e-3)
 
             if not move_probs:
-                print("[WARNING] No moves returned by MCTS during evaluation. Picking random legal move.")
+                print(
+                    "[WARNING] No moves returned by MCTS during evaluation. Picking random legal move."
+                )
                 legal_moves = board.get_legal_moves()
                 move = random.choice(legal_moves)
             else:
@@ -83,7 +99,9 @@ def evaluate_mcts_vs_mcts_pure(
 
         if winner == 0:
             draws += 1
-        elif (winner == 1 and first_player_is_model) or (winner == 2 and not first_player_is_model):
+        elif (winner == 1 and first_player_is_model) or (
+            winner == 2 and not first_player_is_model
+        ):
             model_wins += 1
         else:
             pure_mcts_wins += 1
@@ -97,6 +115,13 @@ def evaluate_mcts_vs_mcts_pure(
     print(f"MCTS_Pure Wins: {pure_mcts_wins}")
     print(f"Draws: {draws}")
     print(f"Model Win Rate: {model_wins / num_games:.2f}")
+
+    # Log win rate to TensorBoard
+    win_rate = model_wins / num_games
+    writer.add_scalar("Eval/Model_Win_Rate", win_rate, global_step=0)
+
+    writer.close()
+
 
 if __name__ == "__main__":
     evaluate_mcts_vs_mcts_pure(

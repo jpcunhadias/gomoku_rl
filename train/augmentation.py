@@ -26,7 +26,9 @@ def augment_board_state(board_tensor: torch.Tensor) -> torch.Tensor:
         torch.Tensor: Augmented tensor (or original if no augmentation applied).
     """
     # Validate input
-    assert board_tensor.shape == (3, 15, 15), f"Expected shape [3,15,15], got {board_tensor.shape}"
+    assert board_tensor.shape == (3, 15, 15), (
+        f"Expected shape [3,15,15], got {board_tensor.shape}"
+    )
 
     # 50% chance to apply augmentation
     if random.random() > 0.5:

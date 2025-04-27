@@ -17,17 +17,17 @@ from train.augmentation import augment_board_state
 
 class SelfPlayRunner:
     def __init__(
-            self,
-            game_cls,
-            mcts_cls,
-            evaluator,
-            buffer,
-            num_simulations=800,
-            dirichlet_alpha=0.3,
-            dirichlet_epsilon=0.25,
-            temperature_schedule=None,
-            augment_fn=None,
-            verbose=False,
+        self,
+        game_cls,
+        mcts_cls,
+        evaluator,
+        buffer,
+        num_simulations=800,
+        dirichlet_alpha=0.3,
+        dirichlet_epsilon=0.25,
+        temperature_schedule=None,
+        augment_fn=None,
+        verbose=False,
     ):
         self.game_cls = game_cls
         self.mcts_cls = mcts_cls
