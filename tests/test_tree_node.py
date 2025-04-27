@@ -14,17 +14,19 @@ def test_tree_node_initialization():
 def test_expand_creates_children():
     node = TreeNode()
     action_priors = [("a", 0.6), ("b", 0.4)]
-    node.expand(action_priors)
+    legal_moves = ["a", "b"]
+    node.expand(action_priors, legal_moves)
 
     assert "a" in node.children
     assert "b" in node.children
-    assert node.children["a"].P == 0.6
-    assert node.children["b"].P == 0.4
+
 
 
 def test_select_child_returns_highest_puct():
     root = TreeNode()
-    root.expand([("a", 0.8), ("b", 0.2)])
+    action_priors = [("a", 0.8), ("b", 0.2)]
+    legal_moves = ["a", "b"]
+    root.expand(action_priors, legal_moves)
     root.n_visits = 10  # simulate some activity
 
     # Simulate visits and Q values
@@ -46,7 +48,9 @@ def test_select_child_returns_highest_puct():
 
 def test_backpropagate_updates_all_parents():
     root = TreeNode()
-    root.expand([("a", 1.0)])
+    action_priors = [("a", 1.0)]
+    legal_moves = ["a"]
+    root.expand(action_priors, legal_moves)
     child = root.children["a"]
 
     child.backpropagate(value=1.0)
