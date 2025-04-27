@@ -8,7 +8,7 @@ from mcts.tree_node import TreeNode
 
 class MCTS:
     def __init__(
-            self, evaluator_fn: Callable, c_puct: float = 1.0, n_simulations: int = 800
+        self, evaluator_fn: Callable, c_puct: float = 1.0, n_simulations: int = 800
     ):
         """
         evaluator_fn: Callable that takes a board and returns (priors_dict, value)
@@ -77,7 +77,9 @@ class MCTS:
 
         return self._normalize_counts(visit_counts, temp)
 
-    def _normalize_counts(self, counts: Dict[Any, int], temp: float) -> Dict[Any, float]:
+    def _normalize_counts(
+        self, counts: Dict[Any, int], temp: float
+    ) -> Dict[Any, float]:
         if not counts:
             # No legal moves available
             return {}

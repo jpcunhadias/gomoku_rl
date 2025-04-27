@@ -29,8 +29,9 @@ def play_mcts_net_vs_random():
 
         if isinstance(players[current_player], MCTSPlayer):
             # Special handling for MCTSPlayer
-            action_probs = players[current_player].mcts.get_action_probs(board,
-                                                                         temp=players[current_player].temperature)
+            action_probs = players[current_player].mcts.get_action_probs(
+                board, temp=players[current_player].temperature
+            )
 
             if not action_probs:
                 print("[WARNING] No moves returned by MCTS. Picking random legal move.")

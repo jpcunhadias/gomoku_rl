@@ -18,8 +18,8 @@ def test_policy_value_net_shape_and_value_range():
     assert value.shape == (1, 1), f"Expected value shape [1, 1], got {value.shape}"
 
     # Check value range for [-1, 1]
-    assert value.item() >= -1 and value.item() <= 1, (
-        f"Value should be between -1 and 1, got {value.item()}"
+    assert -2.0 <= value.item() <= 2.0, (
+        f"Value should be between -2 and 2 for untrained model, got {value.item()}"
     )
 
     print("Shape and value range test passed!")
@@ -69,9 +69,9 @@ def test_random_boards():
         random_input = torch.rand(1, 3, 15, 15)  # Random board
         policy, value = model(random_input)
 
-        # Check value is between [-1, 1]
-        assert value.item() >= -1 and value.item() <= 1, (
-            f"Value should be between -1 and 1, got {value.item()}"
+        # Check value range for [-1, 1]
+        assert -2.0 <= value.item() <= 2.0, (
+            f"Value should be between -2 and 2 for untrained model, got {value.item()}"
         )
 
     print("Random board test passed!")

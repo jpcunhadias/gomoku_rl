@@ -20,9 +20,10 @@ ipython>=7.0
 # Utilities
 tqdm>=4.64
 scikit-learn>=1.1  # For evaluation metrics, optional
+tensorboard>=2.10  # For logging and visualization
 
 # Formatting and linting
 ruff>=0.0.14
 
 # testing
-pytest
+pytest>=7.0

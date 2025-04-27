@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 
 class AlphaZeroTrainer:
@@ -28,6 +29,8 @@ class AlphaZeroTrainer:
         self.value_loss_fn = nn.BCEWithLogitsLoss()
         self.best_value_loss = float("inf")
         self.best_epoch = None
+
+        self.writer = SummaryWriter(log_dir=os.path.join("logs", "train"))
 
     def compute_loss(self, policy_logits, target_policy, value_pred, target_value):
         """
@@ -161,9 +164,14 @@ class AlphaZeroTrainer:
                     f"Best model updated (value loss = {avg_v_loss:.4f}) → saved as best"
                 )
 
+            self.writer.add_scalar("Loss/Policy", avg_p_loss, epoch)
+            self.writer.add_scalar("Loss/Value", avg_v_loss, epoch)
+
         print(
             f"\nTraining complete. Best value loss = {self.best_value_loss:.4f} at epoch {self.best_epoch}"
         )
+        self.writer.close()
+
         return self.best_epoch, self.best_value_loss
 
     def save_checkpoint(self, epoch=None):
