@@ -24,7 +24,7 @@ class TreeNode:
     def is_root(self) -> bool:
         return self.parent is None
 
-    def expand(self, action_priors: List[Tuple[Any, float]], legal_moves: List[Any]):
+    def expand(self, action_priors: List[Tuple[Any, float]], legal_moves: List[Any], debug: bool = False):
         """Expand the tree node with legal action priors only."""
         legal_moves_set = set(legal_moves)
 
@@ -35,6 +35,8 @@ class TreeNode:
                     prior=prob,
                     action_taken=action,
                 )
+            elif debug and action not in legal_moves_set:
+                print(f"[DEBUG] Ignored invalid expansion action: {action}")
 
     def select_child(self, c_puct: float) -> Tuple[Any, "TreeNode"]:
         """Select child with highest PUCT score."""
