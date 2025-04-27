@@ -2,6 +2,9 @@ __pycache__/
 checkpoints/*
 !checkpoints/.gitkeep
 
+logs/*
+!logs/.gitkeep
+
 *.pyc
 venv/
 data/
