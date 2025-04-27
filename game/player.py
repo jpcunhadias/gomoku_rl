@@ -48,12 +48,18 @@ class MCTSPlayer:
     def __repr__(self):
         return f"MCTSPlayer(temperature={self.temperature})"
 
-    def get_action(self, board) -> Any:
-        """
-        Runs MCTS simulations and selects a move based on visit counts.
-        """
+    def get_action(self, board: GomokuBoard) -> Any:
         action_probs = self.mcts.get_action_probs(board, temp=self.temperature)
 
-        # Sample or take argmax depending on temp
+        if not action_probs:
+            # Fallback: pick random move if MCTS failed
+            print("[WARNING] MCTS returned no moves. Picking random legal move.")
+            legal_moves = board.get_legal_moves()
+            return random.choice(legal_moves)
+
         actions, probs = zip(*action_probs.items())
-        return random.choices(actions, weights=probs, k=1)[0]
+
+        if self.temperature <= 1e-3:
+            return actions[0]  # deterministic best move
+        else:
+            return random.choices(actions, weights=probs, k=1)[0]
