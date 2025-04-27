@@ -32,6 +32,13 @@ class MCTS:
         node = root
         state = board.clone()
 
+        # Clean up root's children if board has changed
+        if node == self.root:
+            legal_moves_set = set(state.get_legal_moves())
+            illegal_children = [action for action in node.children if action not in legal_moves_set]
+            for action in illegal_children:
+                del node.children[action]
+
         # Selection
         while not node.is_leaf():
             action, node = node.select_child(self.c_puct)
