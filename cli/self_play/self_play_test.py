@@ -26,14 +26,16 @@ if __name__ == "__main__":
 
     print("Running one self-play game...")
     runner.play_game()
+    assert len(buffer) > 0, "Replay buffer is empty after self-play!"
 
     print(f"Game finished. Buffer has {len(buffer)} samples.")
-    samples = buffer.sample(1)
-    s, pi, z = samples
 
-    print("Sample state shape:", s.shape)  # Expect: [1, 3, 15, 15]
-    print("Sample π shape:", pi.shape)  # Expect: [1, 15, 15]
-    print("Sample z:", z.item())  # Expect: -1, 0, or 1
+    states, policies, values = buffer.sample(1)
 
+    print("Sample state shape:", states[0].shape)  # Expect: [3, 15, 15]
+    print("Sample π shape:", policies[0].shape)     # Expect: [15, 15]
+    print("Sample z:", values[0].item())             # Expect: -1, 0, or 1
+
+    # Optional save
     # buffer.save("checkpoints/replay_buffer.pkl")
     # print("Replay buffer saved to checkpoints/replay_buffer.pkl")

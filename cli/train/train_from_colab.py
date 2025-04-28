@@ -6,22 +6,22 @@ from train.replay_buffer import ReplayBuffer
 from train.train_loop import run_training
 
 # Optional: mount Google Drive if needed
-try:
-    from google.colab import drive
-
-    drive.mount("/content/drive")
-except ImportError:
-    pass
+# try:
+#     from google.colab import drive
+#
+#     drive.mount("/content/drive")
+# except ImportError:
+#     pass
 
 # Load config
 config = get_config()
 
 buffer_path = "/content/drive/MyDrive/gomoku_data/replay_buffer.pkl"
 
-resume_training = True  # Set to False if you want a fresh model
+resume_training = False  # Set to False if you want a fresh model
 checkpoint_path = "/content/drive/MyDrive/gomoku_checkpoints/policy_value_net.pth"
 
-config["save_path"] = checkpoint_path
+config.save_path = checkpoint_path
 
 print("Loading replay buffer...")
 buffer = ReplayBuffer.load(buffer_path)

@@ -4,12 +4,12 @@ from train.config import get_config
 from train.self_play import run_selfplay
 
 # Mount Google Drive (Colab only)
-try:
-    from google.colab import drive
-
-    drive.mount("/content/drive")
-except ImportError:
-    pass
+# try:
+#     from google.colab import drive
+#
+#     drive.mount("/content/drive")
+# except ImportError:
+#     pass
 
 os.chdir("/content/gomoku_rl")
 sys.path.append(".")
@@ -23,8 +23,8 @@ os.makedirs(os.path.dirname(buffer_path), exist_ok=True)
 
 model, buffer = run_selfplay(
     config=config,
-    num_games=50,
-    mcts_simulations=200,
+    num_games=config.num_self_play_games,
+    mcts_simulations=config.num_simulations,
     buffer_save_path=buffer_path,
 )
 
