@@ -19,7 +19,7 @@ def main():
     # Initialize model
     model = PolicyValueNet()  # update if your net requires more args
 
-    replay_buffer = ReplayBuffer.load("checkpoints/replay_buffer.pkl")
+    replay_buffer = ReplayBuffer.load("checkpoints/checkpoints_old/replay_buffer.pkl")
     print(f"Loaded buffer with {len(replay_buffer)} samples")
 
     # Initialize trainer
