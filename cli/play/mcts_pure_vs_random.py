@@ -4,8 +4,6 @@ from mcts.mcts import MCTS
 from cli.play.utils import UniformEvaluator, play_game
 
 
-
-
 def play_mcts_pure_vs_random():
     board = GomokuBoard()
     evaluator = UniformEvaluator()

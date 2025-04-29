@@ -24,7 +24,12 @@ class TreeNode:
     def is_root(self) -> bool:
         return self.parent is None
 
-    def expand(self, action_priors: List[Tuple[Any, float]], legal_moves: List[Any], debug: bool = False):
+    def expand(
+        self,
+        action_priors: List[Tuple[Any, float]],
+        legal_moves: List[Any],
+        debug: bool = False,
+    ):
         """Expand the tree node with legal action priors only."""
         legal_moves_set = set(legal_moves)
 

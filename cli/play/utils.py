@@ -11,6 +11,7 @@ class UniformEvaluator:
         value = 0.0  # Assume neutral board
         return prior, value
 
+
 def play_game(board: GomokuBoard, player1, player2, verbose: bool = False) -> int:
     """
     Play a game between two players.
@@ -48,6 +49,8 @@ def play_game(board: GomokuBoard, player1, player2, verbose: bool = False) -> in
     if verbose:
         board.render()
         print("Game Over.")
-        print("Winner:", f"Player {board.get_winner()}" if board.get_winner() else "Draw")
+        print(
+            "Winner:", f"Player {board.get_winner()}" if board.get_winner() else "Draw"
+        )
 
     return board.get_winner()

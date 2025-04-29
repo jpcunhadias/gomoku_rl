@@ -11,6 +11,7 @@ from train.train_loop import AlphaZeroTrainer
 
 config = get_config()
 
+
 def main():
     print("Self-play + training script started.")
 
@@ -29,14 +30,18 @@ def main():
 
     # === Create MCTS Players ===
     player1 = MCTSPlayer(
-        mcts=MCTS(evaluator_fn=evaluator, n_simulations=config.self_play_num_simulations),
+        mcts=MCTS(
+            evaluator_fn=evaluator, n_simulations=config.self_play_num_simulations
+        ),
         temperature=1.0,  # initial temp
-        add_dirichlet_noise=True  # enable noise on first move
+        add_dirichlet_noise=True,  # enable noise on first move
     )
     player2 = MCTSPlayer(
-        mcts=MCTS(evaluator_fn=evaluator, n_simulations=config.self_play_num_simulations),
+        mcts=MCTS(
+            evaluator_fn=evaluator, n_simulations=config.self_play_num_simulations
+        ),
         temperature=1.0,
-        add_dirichlet_noise=True
+        add_dirichlet_noise=True,
     )
 
     # === Self-play ===
@@ -60,6 +65,7 @@ def main():
     # === Training ===
     trainer = AlphaZeroTrainer(model, buffer, config, device)
     trainer.train()
+
 
 if __name__ == "__main__":
     main()

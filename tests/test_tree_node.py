@@ -21,7 +21,6 @@ def test_expand_creates_children():
     assert "b" in node.children
 
 
-
 def test_select_child_returns_highest_puct():
     root = TreeNode()
     action_priors = [("a", 0.8), ("b", 0.2)]
