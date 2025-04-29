@@ -12,13 +12,13 @@ from train.replay_buffer import ReplayBuffer
 
 class SelfPlayRunner:
     def __init__(
-            self,
-            player1,
-            player2,
-            buffer,
-            temperature_schedule=None,
-            augment_fn=None,
-            verbose=False,
+        self,
+        player1,
+        player2,
+        buffer,
+        temperature_schedule=None,
+        augment_fn=None,
+        verbose=False,
     ):
         self.player1 = player1
         self.player2 = player2
@@ -40,10 +40,14 @@ class SelfPlayRunner:
         while not board.is_terminal():
             current_player = self.player1 if move_number % 2 == 0 else self.player2
 
-            state_tensor = encoder.board_to_tensor(board, 1 if move_number % 2 == 0 else -1)
+            state_tensor = encoder.board_to_tensor(
+                board, 1 if move_number % 2 == 0 else -1
+            )
 
             # Set temperature for MCTS if needed
-            if isinstance(current_player, type(self.player1)) and hasattr(current_player, "set_temperature"):
+            if isinstance(current_player, type(self.player1)) and hasattr(
+                current_player, "set_temperature"
+            ):
                 temp = self.temperature_schedule(move_number)
                 current_player.set_temperature(temp)
 

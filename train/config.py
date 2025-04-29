@@ -14,5 +14,5 @@ def get_config():
         eval_every=50,
         target_win_rate=0.8,
         eval_num_games=20,
-        eval_num_simulations=800
+        eval_num_simulations=800,
     )

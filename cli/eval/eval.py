@@ -12,13 +12,13 @@ from mcts.neural_evaluator import NeuralEvaluator
 
 
 def evaluate_model_vs_pure_mcts(
-        model: nn.Module,
-        device: str,
-        num_games: int = 20,
-        board_size: int = 15,
-        num_simulations: int = 100,
-        writer: Optional[SummaryWriter] = None,
-        global_step: Optional[int] = None,
+    model: nn.Module,
+    device: str,
+    num_games: int = 20,
+    board_size: int = 15,
+    num_simulations: int = 100,
+    writer: Optional[SummaryWriter] = None,
+    global_step: Optional[int] = None,
 ) -> float:
     """
     Evaluate the model against a pure MCTS agent.
@@ -76,7 +76,9 @@ def evaluate_model_vs_pure_mcts(
         if winner == 0:
             draws += 1
             winner_str = "Draw"
-        elif (winner == 1 and first_player_is_model) or (winner == 2 and not first_player_is_model):
+        elif (winner == 1 and first_player_is_model) or (
+            winner == 2 and not first_player_is_model
+        ):
             model_wins += 1
             winner_str = "Model"
         else:

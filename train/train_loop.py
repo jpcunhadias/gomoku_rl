@@ -44,8 +44,6 @@ class AlphaZeroTrainer:
 
         self.writer = SummaryWriter(log_dir=os.path.join("logs", "train"))
 
-
-
     def compute_loss(self, policy_logits, target_policy, value_pred, target_value):
         """
         Combines policy and value losses.
@@ -195,11 +193,15 @@ class AlphaZeroTrainer:
                     global_step=epoch,
                 )
 
-                print(f"[Eval] Win Rate vs Pure MCTS after Epoch {epoch}: {win_rate:.2f}")
+                print(
+                    f"[Eval] Win Rate vs Pure MCTS after Epoch {epoch}: {win_rate:.2f}"
+                )
 
                 # Early stopping if we reach target win rate
                 if win_rate >= self.target_win_rate:
-                    print(f"Early stopping: Target win rate {self.target_win_rate:.2f} achieved!")
+                    print(
+                        f"Early stopping: Target win rate {self.target_win_rate:.2f} achieved!"
+                    )
                     break
 
         print(

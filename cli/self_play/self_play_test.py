@@ -15,11 +15,10 @@ if __name__ == "__main__":
 
     mcts_player1 = MCTSPlayer(
         MCTS(evaluator_fn=evaluator, n_simulations=50),
-        temperature=1.0  # Will be dynamically adjusted later
+        temperature=1.0,  # Will be dynamically adjusted later
     )
     mcts_player2 = MCTSPlayer(
-        MCTS(evaluator_fn=evaluator, n_simulations=50),
-        temperature=1.0
+        MCTS(evaluator_fn=evaluator, n_simulations=50), temperature=1.0
     )
 
     # Setup self-play runner

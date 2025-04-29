@@ -41,7 +41,14 @@ class HumanPlayer:
 
 
 class MCTSPlayer:
-    def __init__(self, mcts: MCTS, temperature: float = 1e-3, add_dirichlet_noise=False, dirichlet_alpha=0.3, dirichlet_epsilon=0.25):
+    def __init__(
+        self,
+        mcts: MCTS,
+        temperature: float = 1e-3,
+        add_dirichlet_noise=False,
+        dirichlet_alpha=0.3,
+        dirichlet_epsilon=0.25,
+    ):
         self.mcts = mcts
         self.temperature = temperature
         self.add_dirichlet_noise = add_dirichlet_noise
@@ -88,6 +95,7 @@ class MCTSPlayer:
         noise = np.random.dirichlet([self.dirichlet_alpha] * len(actions))
         noisy_probs = {}
         for a, n in zip(actions, noise):
-            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[a] + self.dirichlet_epsilon * n
+            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[
+                a
+            ] + self.dirichlet_epsilon * n
         return noisy_probs
-
