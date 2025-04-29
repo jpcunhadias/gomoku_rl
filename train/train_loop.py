@@ -30,7 +30,21 @@ class AlphaZeroTrainer:
         self.best_value_loss = float("inf")
         self.best_epoch = None
 
+        self.eval_every = getattr(config, "eval_every", 5)
+        self.target_win_rate = getattr(config, "target_win_rate", 0.8)
+        self.eval_num_games = getattr(config, "eval_num_games", 20)
+        self.eval_num_simulations = getattr(config, "eval_num_simulations", 100)
+
+        print(
+            f"[Trainer Initialized] Evaluation every {self.eval_every} epochs, "
+            f"target win rate = {self.target_win_rate * 100:.1f}%, "
+            f"{self.eval_num_games} games per eval, "
+            f"{self.eval_num_simulations} simulations per move."
+        )
+
         self.writer = SummaryWriter(log_dir=os.path.join("logs", "train"))
+
+
 
     def compute_loss(self, policy_logits, target_policy, value_pred, target_value):
         """
@@ -166,6 +180,27 @@ class AlphaZeroTrainer:
 
             self.writer.add_scalar("Loss/Policy", avg_p_loss, epoch)
             self.writer.add_scalar("Loss/Value", avg_v_loss, epoch)
+
+            # === Evaluate model against Pure MCTS after training ===
+            if epoch % self.eval_every == 0:
+                from cli.eval.eval import evaluate_model_vs_pure_mcts
+
+                win_rate = evaluate_model_vs_pure_mcts(
+                    model=self.model,
+                    device=self.device,
+                    num_games=self.eval_num_games,
+                    board_size=15,
+                    num_simulations=self.eval_num_simulations,
+                    writer=self.writer,
+                    global_step=epoch,
+                )
+
+                print(f"[Eval] Win Rate vs Pure MCTS after Epoch {epoch}: {win_rate:.2f}")
+
+                # Early stopping if we reach target win rate
+                if win_rate >= self.target_win_rate:
+                    print(f"Early stopping: Target win rate {self.target_win_rate:.2f} achieved!")
+                    break
 
         print(
             f"\nTraining complete. Best value loss = {self.best_value_loss:.4f} at epoch {self.best_epoch}"

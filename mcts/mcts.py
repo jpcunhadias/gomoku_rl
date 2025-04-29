@@ -41,7 +41,14 @@ class MCTS:
 
         # Selection
         while not node.is_leaf():
+            # === Before selecting, clean illegal children ===
+            legal_moves_set = set(state.get_legal_moves())
+            illegal_children = [action for action in node.children if action not in legal_moves_set]
+            for action in illegal_children:
+                del node.children[action]
+
             action, node = node.select_child(self.c_puct)
+
             if isinstance(action, int):
                 row, col = state.index_to_move(action)
             elif isinstance(action, tuple):

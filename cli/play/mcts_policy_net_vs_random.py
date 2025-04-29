@@ -3,7 +3,7 @@ from game.player import MCTSPlayer, RandomPlayer
 from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
 from mcts.neural_evaluator import NeuralEvaluator
-from cli.play.utils import play_mcts_vs_random
+from cli.play.utils import play_game
 
 
 def play_mcts_net_vs_random():
@@ -21,7 +21,7 @@ def play_mcts_net_vs_random():
     random_player = RandomPlayer(player_id=2)
 
     # Play the game
-    play_mcts_vs_random(board, mcts_player, random_player)
+    play_game(board, mcts_player, random_player)
 
     board.render()
     print("Game Over.")
