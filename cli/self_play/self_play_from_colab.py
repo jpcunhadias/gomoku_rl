@@ -47,7 +47,7 @@ runner = SelfPlayRunner(
     player2=player2,
     buffer=buffer,
     temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
-    verbose=True,
+    verbose=False,
 )
 
 for i in range(config.num_self_play_games):
