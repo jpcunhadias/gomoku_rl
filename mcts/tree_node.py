@@ -46,6 +46,9 @@ class TreeNode:
     def select_child(self, c_puct: float) -> Tuple[Any, "TreeNode"]:
         """Select child with highest PUCT score."""
 
+        if self.is_leaf():
+            raise ValueError("Cannot select child from a leaf node.")
+
         def puct_score(child: "TreeNode") -> float:
             u = c_puct * child.P * np.sqrt(self.n_visits + 1e-8) / (1 + child.n_visits)
             return child.Q + u
