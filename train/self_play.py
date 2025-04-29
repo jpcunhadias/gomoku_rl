@@ -107,12 +107,12 @@ def run_selfplay(config, buffer_save_path=None):
 
     # Create players
     player1 = MCTSPlayer(
-        MCTS(evaluator_fn=evaluator.evaluate, c_puct=1.5, n_simulations=800),
-        temperature=1.0,
+        MCTS(evaluator_fn=evaluator, c_puct=1.5, n_simulations=config.self_play_num_simulations),
+        temperature=1.0, add_dirichlet_noise=True
     )
     player2 = MCTSPlayer(
-        MCTS(evaluator_fn=evaluator.evaluate, c_puct=1.5, n_simulations=800),
-        temperature=1.0,
+        MCTS(evaluator_fn=evaluator, c_puct=1.5, n_simulations=config.self_play_num_simulations),
+        temperature=1.0, add_dirichlet_noise=True
     )
 
     buffer = ReplayBuffer(max_size=config.replay_buffer_size)
