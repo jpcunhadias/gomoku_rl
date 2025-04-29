@@ -51,6 +51,10 @@ class MCTS:
             for action in illegal_children:
                 del node.children[action]
 
+            if node.is_leaf():
+                # No children to select → break to expand
+                break
+
             action, node = node.select_child(self.c_puct)
 
             if isinstance(action, int):
