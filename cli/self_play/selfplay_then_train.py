@@ -1,6 +1,6 @@
 import torch
 
-from game.gomoku import GomokuBoard
+from game.player import MCTSPlayer
 from mcts.mcts import MCTS
 from mcts.neural_evaluator import NeuralEvaluator
 from model.policy_value_net import PolicyValueNet
@@ -27,13 +27,23 @@ def main():
     buffer = ReplayBuffer(max_size=config.replay_buffer_size)
     print("Initialized new ReplayBuffer.")
 
+    # === Create MCTS Players ===
+    player1 = MCTSPlayer(
+        mcts=MCTS(evaluator_fn=evaluator, n_simulations=config.self_play_num_simulations),
+        temperature=1.0,  # initial temp
+        add_dirichlet_noise=True  # enable noise on first move
+    )
+    player2 = MCTSPlayer(
+        mcts=MCTS(evaluator_fn=evaluator, n_simulations=config.self_play_num_simulations),
+        temperature=1.0,
+        add_dirichlet_noise=True
+    )
+
     # === Self-play ===
     runner = SelfPlayRunner(
-        game_cls=GomokuBoard,
-        mcts_cls=MCTS,
-        evaluator=evaluator,
+        player1=player1,
+        player2=player2,
         buffer=buffer,
-        num_simulations=config.num_simulations,  # from config (small for test)
         temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
         verbose=False,
     )

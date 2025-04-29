@@ -1,6 +1,6 @@
 import random
 from typing import Tuple, Protocol, Any
-
+import numpy as np
 from game.gomoku import GomokuBoard
 from mcts.mcts import MCTS
 
@@ -41,12 +41,23 @@ class HumanPlayer:
 
 
 class MCTSPlayer:
-    def __init__(self, mcts: MCTS, temperature: float = 1e-3):
+    def __init__(self, mcts: MCTS, temperature: float = 1e-3, add_dirichlet_noise=False, dirichlet_alpha=0.3, dirichlet_epsilon=0.25):
         self.mcts = mcts
         self.temperature = temperature
+        self.add_dirichlet_noise = add_dirichlet_noise
+        self.dirichlet_alpha = dirichlet_alpha
+        self.dirichlet_epsilon = dirichlet_epsilon
+        self.move_number = 0  # Track move number internally
 
     def __repr__(self):
         return f"MCTSPlayer(temperature={self.temperature})"
+
+    def set_temperature(self, temp: float):
+        self.temperature = temp
+
+    def reset(self):
+        """Call this before each new game to reset move number."""
+        self.move_number = 0
 
     def get_action(self, board: GomokuBoard) -> Any:
         action_probs = self.mcts.get_action_probs(board, temp=self.temperature)
@@ -57,9 +68,26 @@ class MCTSPlayer:
             legal_moves = board.get_legal_moves()
             return random.choice(legal_moves)
 
+        # === Add Dirichlet noise only on first move if enabled ===
+        if self.add_dirichlet_noise and self.move_number == 0:
+            action_probs = self._add_dirichlet_noise(action_probs)
+
         actions, probs = zip(*action_probs.items())
 
         if self.temperature <= 1e-3:
-            return actions[0]  # deterministic best move
+            selected_action = actions[0]  # deterministic best move
         else:
-            return random.choices(actions, weights=probs, k=1)[0]
+            selected_action = random.choices(actions, weights=probs, k=1)[0]
+
+        self.move_number += 1
+        return selected_action
+
+    def _add_dirichlet_noise(self, action_probs):
+        """Inject Dirichlet noise into action probabilities."""
+        actions = list(action_probs.keys())
+        noise = np.random.dirichlet([self.dirichlet_alpha] * len(actions))
+        noisy_probs = {}
+        for a, n in zip(actions, noise):
+            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[a] + self.dirichlet_epsilon * n
+        return noisy_probs
+
