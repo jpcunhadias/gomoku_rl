@@ -94,7 +94,7 @@ class SelfPlayRunner:
         return torch.from_numpy(pi)
 
 
-def run_selfplay(config, num_games=50, buffer_save_path=None):
+def run_selfplay(config, buffer_save_path=None):
     from model.policy_value_net import PolicyValueNet
     from mcts.mcts import MCTS
     from mcts.neural_evaluator import NeuralEvaluator
@@ -126,7 +126,7 @@ def run_selfplay(config, num_games=50, buffer_save_path=None):
         verbose=False,
     )
 
-    for i in trange(num_games, desc="Self-play games"):
+    for i in trange(config.num_self_play_games, desc="Self-play games"):
         runner.play_game()
 
     print(f"\nBuffer filled with {len(buffer)} samples.")
