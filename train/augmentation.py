@@ -60,6 +60,5 @@ def augment_data(data):
         list: List with augmented state tensors.
     """
     return [
-        (augment_board_state(state), policy, value)
-        for state, policy, value in data
+        (augment_board_state(state), policy, value) for state, policy, value in data
     ]
