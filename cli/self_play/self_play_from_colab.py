@@ -19,5 +19,5 @@ config = get_config()
 buffer_path = "/content/drive/MyDrive/gomoku_data/replay_buffer.pkl"
 os.makedirs(os.path.dirname(buffer_path), exist_ok=True)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_selfplay(config, buffer_save_path=buffer_path)
