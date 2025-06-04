@@ -78,11 +78,6 @@ class SelfPlayRunner:
         if self.augment_fn:
             final_data = self.augment_fn(final_data)
 
-        augmented_data = []
-        for state, policy, value in final_data:
-            augmented_state = augment_board_state(state)
-            augmented_data.append((augmented_state, policy, value))
-
         self.buffer.add(augmented_data)
 
     def _create_pi_from_action(self, board, action):
