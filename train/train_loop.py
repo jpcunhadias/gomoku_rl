@@ -1,6 +1,7 @@
 import os
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
@@ -54,7 +55,8 @@ class AlphaZeroTrainer:
             value_pred (Tensor): Scalar value prediction from value head.
             target_value (Tensor): Actual game result (-1, 0, 1).
         """
-        policy_loss = self.policy_loss_fn(policy_logits, target_policy)
+        log_probs = F.log_softmax(policy_logits, dim=1)
+        policy_loss = self.policy_loss_fn(log_probs, target_policy)
         value_loss = self.value_loss_fn(
             value_pred.view(-1), target_value.float().view(-1)
         )
