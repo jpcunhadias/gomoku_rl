@@ -1,31 +1,43 @@
 import random
-from typing import Tuple, Protocol, Any
+from typing import Tuple, Protocol, Any, Dict
+
 import numpy as np
+
 from game.gomoku import GomokuBoard
 from mcts.mcts import MCTS
 
 
 class Player(Protocol):
-    def get_action(self, board: GomokuBoard) -> Tuple[int, int]: ...
+    """Protocol for player implementations."""
+
+    def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
+        """Return the action ``(row, col)`` chosen on ``board``."""
+        ...
 
 
 class RandomPlayer:
-    def __init__(self, player_id: int):
+    """Player that selects moves uniformly at random."""
+
+    def __init__(self, player_id: int) -> None:
         self.player_id = player_id
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"RandomPlayer({self.player_id})"
 
     def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
+        """Return a randomly chosen legal move."""
         legal_moves = board.get_legal_moves()
         return random.choice(legal_moves)
 
 
 class HumanPlayer:
-    def __init__(self, player_id: int):
+    """Player that queries the user for a move via the console."""
+
+    def __init__(self, player_id: int) -> None:
         self.player_id = player_id
 
     def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
+        """Prompt the user for a legal move."""
         while True:
             try:
                 move_str = input(
@@ -41,14 +53,16 @@ class HumanPlayer:
 
 
 class MCTSPlayer:
+    """Player that selects moves using Monte-Carlo Tree Search."""
+
     def __init__(
         self,
         mcts: MCTS,
         temperature: float = 1e-3,
-        add_dirichlet_noise=False,
-        dirichlet_alpha=0.3,
-        dirichlet_epsilon=0.25,
-    ):
+        add_dirichlet_noise: bool = False,
+        dirichlet_alpha: float = 0.3,
+        dirichlet_epsilon: float = 0.25,
+    ) -> None:
         self.mcts = mcts
         self.temperature = temperature
         self.add_dirichlet_noise = add_dirichlet_noise
@@ -56,17 +70,19 @@ class MCTSPlayer:
         self.dirichlet_epsilon = dirichlet_epsilon
         self.move_number = 0  # Track move number internally
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"MCTSPlayer(temperature={self.temperature})"
 
-    def set_temperature(self, temp: float):
+    def set_temperature(self, temp: float) -> None:
+        """Set the sampling temperature used when selecting moves."""
         self.temperature = temp
 
-    def reset(self):
-        """Call this before each new game to reset move number."""
+    def reset(self) -> None:
+        """Reset internal move counter before a new game."""
         self.move_number = 0
 
     def get_action(self, board: GomokuBoard) -> Any:
+        """Return a move selected by MCTS."""
         action_probs = self.mcts.get_action_probs(board, temp=self.temperature)
 
         if not action_probs:
@@ -90,13 +106,11 @@ class MCTSPlayer:
         self.move_number += 1
         return selected_action
 
-    def _add_dirichlet_noise(self, action_probs):
+    def _add_dirichlet_noise(self, action_probs: Dict[Any, float]) -> Dict[Any, float]:
         """Inject Dirichlet noise into action probabilities."""
         actions = list(action_probs.keys())
         noise = np.random.dirichlet([self.dirichlet_alpha] * len(actions))
-        noisy_probs = {}
+        noisy_probs: Dict[Any, float] = {}
         for a, n in zip(actions, noise):
-            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[
-                a
-            ] + self.dirichlet_epsilon * n
+            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[a] + self.dirichlet_epsilon * n
         return noisy_probs

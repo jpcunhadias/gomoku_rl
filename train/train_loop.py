@@ -6,8 +6,15 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 
+from typing import Any, Tuple, Optional, Union
+
+from train.replay_buffer import ReplayBuffer
+
+
 class AlphaZeroTrainer:
-    def __init__(self, model, replay_buffer, config, device="cpu"):
+    """Trainer implementing the AlphaZero learning loop."""
+
+    def __init__(self, model: nn.Module, replay_buffer: ReplayBuffer, config: Any, device: str = "cpu") -> None:
         """
         AlphaZero training loop for Gomoku.
 
@@ -45,7 +52,13 @@ class AlphaZeroTrainer:
 
         self.writer = SummaryWriter(log_dir=os.path.join("logs", "train"))
 
-    def compute_loss(self, policy_logits, target_policy, value_pred, target_value):
+    def compute_loss(
+        self,
+        policy_logits: torch.Tensor,
+        target_policy: torch.Tensor,
+        value_pred: torch.Tensor,
+        target_value: torch.Tensor,
+    ) -> Tuple[torch.Tensor, float, float]:
         """
         Combines policy and value losses.
 
@@ -67,7 +80,7 @@ class AlphaZeroTrainer:
 
         return total_loss, policy_loss.item(), value_loss.item()
 
-    def train(self, debug=False):
+    def train(self, debug: bool = False) -> Tuple[Optional[int], float]:
         """
         Main training loop.
         """
@@ -214,7 +227,7 @@ class AlphaZeroTrainer:
 
         return self.best_epoch, self.best_value_loss
 
-    def save_checkpoint(self, epoch=None):
+    def save_checkpoint(self, epoch: Optional[Union[int, str]] = None) -> None:
         """
         Saves the model and optimizer state dicts.
         """
@@ -233,7 +246,9 @@ class AlphaZeroTrainer:
         print(f"Checkpoint saved to: {path}")
 
 
-def run_training(model, buffer, config):
+def run_training(model: nn.Module, buffer: ReplayBuffer, config: Any) -> None:
+    """Utility to create a trainer and start training."""
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 

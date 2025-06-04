@@ -4,12 +4,14 @@ import numpy as np
 
 
 class TreeNode:
+    """Node used in the Monte-Carlo search tree."""
+
     def __init__(
         self,
         parent: Optional["TreeNode"] = None,
         prior: float = 1.0,
         action_taken: Any = None,
-    ):
+    ) -> None:
         self.parent: Optional["TreeNode"] = parent
         self.children: Dict[Any, "TreeNode"] = {}
         self.n_visits: int = 0
@@ -19,9 +21,11 @@ class TreeNode:
         self.action_taken: Any = action_taken
 
     def is_leaf(self) -> bool:
+        """Return ``True`` if the node has no children."""
         return len(self.children) == 0
 
     def is_root(self) -> bool:
+        """Return ``True`` if the node is the root of the tree."""
         return self.parent is None
 
     def expand(
@@ -29,8 +33,8 @@ class TreeNode:
         action_priors: List[Tuple[Any, float]],
         legal_moves: List[Any],
         debug: bool = False,
-    ):
-        """Expand the tree node with legal action priors only."""
+    ) -> None:
+        """Expand the node using ``action_priors`` filtered by ``legal_moves``."""
         legal_moves_set = set(legal_moves)
 
         for action, prob in action_priors:
@@ -55,13 +59,13 @@ class TreeNode:
 
         return max(self.children.items(), key=lambda item: puct_score(item[1]))
 
-    def update(self, value: float):
+    def update(self, value: float) -> None:
         """Update statistics with value from leaf evaluation."""
         self.n_visits += 1
         self.W += value
         self.Q = self.W / self.n_visits
 
-    def backpropagate(self, value: float):
+    def backpropagate(self, value: float) -> None:
         """Recursively update current and ancestor nodes. Alternate sign for players."""
         if self.parent:
             self.parent.backpropagate(-value)

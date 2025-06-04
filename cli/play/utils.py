@@ -1,9 +1,12 @@
 from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer
+from typing import Any, List, Tuple
 
 
 class UniformEvaluator:
-    def __call__(self, board):
+    """Simple evaluator that assigns equal probability to all legal moves."""
+
+    def __call__(self, board: GomokuBoard) -> Tuple[List[Tuple[Any, float]], float]:
         legal_moves = board.get_legal_moves()
         if not legal_moves:
             return [], 0.0  # No moves left, return empty list and neutral value

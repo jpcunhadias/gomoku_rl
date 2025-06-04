@@ -9,7 +9,8 @@ from train.train_loop import AlphaZeroTrainer
 config = get_config()
 
 
-def main():
+def main() -> None:
+    """Entry point for running the full AlphaZero training loop."""
     print("Starting AlphaZero training loop")
 
     # Select device

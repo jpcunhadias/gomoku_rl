@@ -1,7 +1,9 @@
 from types import SimpleNamespace
 
 
-def get_config():
+def get_config() -> SimpleNamespace:
+    """Return a namespace with default training configuration values."""
+
     return SimpleNamespace(
         num_self_play_games=50,
         self_play_num_simulations=800,
