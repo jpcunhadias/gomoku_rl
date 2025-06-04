@@ -40,9 +40,11 @@ class SelfPlayRunner:
         while not board.is_terminal():
             current_player = self.player1 if move_number % 2 == 0 else self.player2
 
-            state_tensor = encoder.board_to_tensor(
-                board, 1 if move_number % 2 == 0 else -1
-            )
+            # Encode the board from the perspective of the player whose
+            # turn it is. ``board.current_player`` is 1 for player one and
+            # 2 for player two, which matches the expected input of
+            # ``board_to_tensor``.
+            state_tensor = encoder.board_to_tensor(board, board.current_player)
 
             # Set temperature for MCTS if needed
             if isinstance(current_player, type(self.player1)) and hasattr(
