@@ -52,7 +52,8 @@ class AlphaZeroTrainer:
             policy_logits (Tensor): Raw logits from policy head.
             target_policy (Tensor): Target probabilities (π from MCTS).
             value_pred (Tensor): Scalar value prediction from value head.
-            target_value (Tensor): Actual game result (-1, 0, 1).
+            target_value (Tensor): Actual game result where ``1.0`` indicates a
+                win and ``0.0`` represents either a loss or a draw.
         """
         policy_loss = self.policy_loss_fn(policy_logits, target_policy)
         value_loss = self.value_loss_fn(
