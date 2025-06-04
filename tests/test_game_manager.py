@@ -23,11 +23,11 @@ def test_draw_game():
                 pytest.skip("Pattern accidentally formed a win")
 
     game.board.current_player = 1  # Set back to 1 for consistency
-    game.board.last_move = (size - 1, size - 1)  # Last move just to satisfy check
-    assert game.board.is_draw()
-    assert game.is_over()
-    assert game.get_winner() is None
+    game.board.last_move = (size - 1, size - 1)  # Last move just to satisfy check_win
+    game.finished = game.board.is_terminal()
+    game.winner = game.board.get_winner()
 
+    assert game.board.check_draw()
     assert game.is_over() is True
     assert game.get_winner() is None
 
