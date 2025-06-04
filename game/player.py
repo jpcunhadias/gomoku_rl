@@ -82,7 +82,8 @@ class MCTSPlayer:
         actions, probs = zip(*action_probs.items())
 
         if self.temperature <= 1e-3:
-            selected_action = actions[0]  # deterministic best move
+            # Select the move with the highest probability when deterministic
+            selected_action = max(action_probs.items(), key=lambda x: x[1])[0]
         else:
             selected_action = random.choices(actions, weights=probs, k=1)[0]
 
