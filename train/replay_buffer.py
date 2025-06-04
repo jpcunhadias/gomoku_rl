@@ -5,11 +5,13 @@ import torch
 
 
 class ReplayBuffer:
-    def __init__(self, max_size: int):
+    """In-memory circular buffer used to store self-play examples."""
+
+    def __init__(self, max_size: int) -> None:
         self.max_size = max_size
         self.buffer: List[Tuple[torch.Tensor, torch.Tensor, float]] = []
 
-    def add(self, game_data: List[Tuple[torch.Tensor, torch.Tensor, float]]):
+    def add(self, game_data: List[Tuple[torch.Tensor, torch.Tensor, float]]) -> None:
         """
         Accepts a list of (state_tensor, pi_tensor, z_value) tuples from one self-play game.
         """
@@ -36,18 +38,18 @@ class ReplayBuffer:
         )
 
     @classmethod
-    def load(cls, path: str):
+    def load(cls, path: str) -> "ReplayBuffer":
         import pickle
 
         with open(path, "rb") as f:
             return pickle.load(f)
 
-    def save(self, path: str):
+    def save(self, path: str) -> None:
         import pickle
 
         with open(path, "wb") as f:
             # noinspection PyTypeChecker
             pickle.dump(self, f)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.buffer)

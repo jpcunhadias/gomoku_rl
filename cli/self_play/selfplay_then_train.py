@@ -12,7 +12,8 @@ from train.train_loop import AlphaZeroTrainer
 config = get_config()
 
 
-def main():
+def main() -> None:
+    """Run a short cycle of self-play followed by training."""
     print("Self-play + training script started.")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
