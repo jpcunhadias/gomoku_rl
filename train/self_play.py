@@ -78,7 +78,7 @@ class SelfPlayRunner:
         if self.augment_fn:
             final_data = self.augment_fn(final_data)
 
-        self.buffer.add(augmented_data)
+        self.buffer.add(final_data)
 
     def _create_pi_from_action(self, board, action):
         """Create a 15x15 policy matrix where the selected move gets probability 1"""
