@@ -7,28 +7,36 @@ from mcts.tree_node import TreeNode
 
 
 class MCTS:
+    """Simple Monte-Carlo Tree Search implementation."""
+
     def __init__(
-        self, evaluator_fn: Callable, c_puct: float = 1.0, n_simulations: int = 800
-    ):
+        self, evaluator_fn: Callable[[Any], Any], c_puct: float = 1.0, n_simulations: int = 800
+    ) -> None:
+        """Create a new MCTS instance.
+
+        Args:
+            evaluator_fn: Callable that evaluates a board and returns
+                ``(priors, value)``.
+            c_puct: Exploration constant for PUCT formula.
+            n_simulations: Number of simulations per move.
         """
-        evaluator_fn: Callable that takes a board and returns (priors_dict, value)
-        """
+
         self.evaluator_fn = evaluator_fn
         self.c_puct = c_puct
         self.n_simulations = n_simulations
         self.root = TreeNode()
 
-    def update_with_move(self, move):
-        """
-        Reuse the subtree rooted at the selected child node (if available).
-        """
+    def update_with_move(self, move: Any) -> None:
+        """Reuse the subtree rooted at ``move`` if it exists."""
         if hasattr(self, "root") and move in self.root.children:
             self.root = self.root.children[move]
             self.root.parent = None  # clear reference to previous root
         else:
             self.root = TreeNode()  # reset tree if move not in children
 
-    def run_simulation(self, root: TreeNode, board):
+    def run_simulation(self, root: TreeNode, board: Any) -> None:
+        """Run a single MCTS simulation starting from ``root``."""
+
         node = root
         state = board.clone()
 
@@ -85,10 +93,8 @@ class MCTS:
 
         node.backpropagate(value)
 
-    def get_action_probs(self, board, temp: float = 1e-3) -> Dict[Any, float]:
-        """
-        Run simulations and return a distribution over actions from the root node.
-        """
+    def get_action_probs(self, board: Any, temp: float = 1e-3) -> Dict[Any, float]:
+        """Return a probability distribution over legal actions."""
 
         for _ in range(self.n_simulations):
             self.run_simulation(self.root, board)
@@ -102,6 +108,7 @@ class MCTS:
     def _normalize_counts(
         self, counts: Dict[Any, int], temp: float
     ) -> Dict[Any, float]:
+        """Convert visit counts to a probability distribution."""
         if not counts:
             # No legal moves available
             return {}

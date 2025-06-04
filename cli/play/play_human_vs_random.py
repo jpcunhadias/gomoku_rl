@@ -1,7 +1,10 @@
 from game.gomoku import GomokuGameManager
 from game.player import HumanPlayer, RandomPlayer
 
-if __name__ == "__main__":
+
+def play_human_vs_random() -> None:
+    """Run a full game between a human and a random agent."""
+
     game = GomokuGameManager()
     human = HumanPlayer(1)
     ai = RandomPlayer(2)
@@ -17,3 +20,7 @@ if __name__ == "__main__":
     game.render()
     winner = game.get_winner()
     print("Winner:", "Draw" if winner is None else f"Player {winner}")
+
+
+if __name__ == "__main__":
+    play_human_vs_random()

@@ -1,7 +1,7 @@
 import os
-
 import numpy as np
 import torch
+from typing import Callable, List, Tuple, Optional, Any
 from tqdm import trange
 
 from game import encoder
@@ -11,15 +11,16 @@ from train.replay_buffer import ReplayBuffer
 
 
 class SelfPlayRunner:
+    """Orchestrates self-play games between two agents."""
     def __init__(
         self,
         player1,
         player2,
-        buffer,
-        temperature_schedule=None,
-        augment_fn=None,
-        verbose=False,
-    ):
+        buffer: ReplayBuffer,
+        temperature_schedule: Optional[Callable[[int], float]] = None,
+        augment_fn: Optional[Callable[[List[Tuple[torch.Tensor, torch.Tensor, float]]], List[Tuple[torch.Tensor, torch.Tensor, float]]]] = None,
+        verbose: bool = False,
+    ) -> None:
         self.player1 = player1
         self.player2 = player2
         self.buffer = buffer
@@ -27,7 +28,8 @@ class SelfPlayRunner:
         self.augment_fn = augment_fn
         self.verbose = verbose
 
-    def play_game(self):
+    def play_game(self) -> None:
+        """Play a single self-play game and store the resulting data."""
         board = GomokuBoard()
         game_data = []
         move_number = 0
@@ -85,8 +87,8 @@ class SelfPlayRunner:
 
         self.buffer.add(final_data)
 
-    def _create_pi_from_action(self, board, action):
-        """Create a 15x15 policy matrix where the selected move gets probability 1"""
+    def _create_pi_from_action(self, board: GomokuBoard, action: Any) -> torch.Tensor:
+        """Create a ``15×15`` policy tensor with ``1`` at the chosen move."""
         pi = np.zeros((15, 15), dtype=np.float32)
         if isinstance(action, tuple):
             pi[action[0], action[1]] = 1.0
@@ -96,7 +98,8 @@ class SelfPlayRunner:
         return torch.from_numpy(pi)
 
 
-def run_selfplay(config, buffer_save_path=None):
+def run_selfplay(config: Any, buffer_save_path: Optional[str] = None) -> Tuple[Any, ReplayBuffer]:
+    """Run multiple self-play games and optionally save the buffer."""
     from model.policy_value_net import PolicyValueNet
     from mcts.mcts import MCTS
     from mcts.neural_evaluator import NeuralEvaluator

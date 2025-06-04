@@ -1,8 +1,11 @@
 import numpy as np
+from typing import List, Tuple, Optional
 
 
 class GomokuBoard:
-    def __init__(self, board_size=15, n_in_row=5):
+    """Representation of a Gomoku game board."""
+
+    def __init__(self, board_size: int = 15, n_in_row: int = 5) -> None:
         self.board_size = board_size
         self.n_in_row = n_in_row
         self.board = np.zeros(
@@ -11,14 +14,14 @@ class GomokuBoard:
         self.current_player = 1
         self.last_move = None
 
-    def reset(self, start_player=1):
-        """Reset the game board and player to the starting state."""
+    def reset(self, start_player: int = 1) -> None:
+        """Reset the game board and current player."""
         self.board = np.zeros((self.board_size, self.board_size), dtype=np.int8)
         self.current_player = start_player
         self.last_move = None
 
-    def get_legal_moves(self):
-        """Return a list of (row, col) tuples where the board is empty."""
+    def get_legal_moves(self) -> List[Tuple[int, int]]:
+        """Return coordinates of all empty positions."""
         legal_moves = [
             (r, c)
             for r in range(self.board_size)
@@ -27,14 +30,14 @@ class GomokuBoard:
         ]
         return legal_moves
 
-    def is_legal_move(self, row, col):
-        """Return True if the position is on the board and unoccupied."""
+    def is_legal_move(self, row: int, col: int) -> bool:
+        """Return ``True`` if ``(row, col)`` is empty and on the board."""
         if 0 <= row < self.board_size and 0 <= col < self.board_size:
             return self.board[row, col] == 0
         return False
 
-    def apply_move(self, row, col):
-        """Apply a move for the current player at the given position."""
+    def apply_move(self, row: int, col: int) -> None:
+        """Apply ``(row, col)`` for the current player."""
         if not self.is_legal_move(row, col):
             raise ValueError(f"Illegal move at ({row}, {col})")
 
@@ -42,7 +45,9 @@ class GomokuBoard:
         self.last_move = (row, col)
         self.current_player = 2 if self.current_player == 1 else 1
 
-    def check_win(self):
+    def check_win(self) -> Tuple[bool, int]:
+        """Return whether the last move ended the game and the winning player."""
+
         if self.last_move is None:
             return False, -1
 
@@ -86,22 +91,24 @@ class GomokuBoard:
 
         return False, -1
 
-    def check_draw(self):
-        """Return True if the game is a draw (board full and no winner)."""
+    def check_draw(self) -> bool:
+        """Return ``True`` if the board is full and no player has won."""
         if not np.any(self.board == 0):  # no empty cells
             win, _ = self.check_win()
             return not win  # it's a draw if nobody won
         return False
 
-    def get_legal_move_indices(self):
+    def get_legal_move_indices(self) -> List[int]:
+        """Return legal moves encoded as single indices."""
         return [self.move_to_index(r, c) for (r, c) in self.get_legal_moves()]
 
-    def get_winner(self):
+    def get_winner(self) -> Optional[int]:
+        """Return the winning player or ``None`` if there is no winner."""
         win, winner = self.check_win()
         return winner if win else None
 
-    def get_current_state(self):
-        """Return a 4-channel tensor of the board state from current player's perspective."""
+    def get_current_state(self) -> np.ndarray:
+        """Return a 4-channel tensor describing the board state."""
         state = np.zeros((4, self.board_size, self.board_size), dtype=np.float32)
 
         # Player channels
@@ -120,8 +127,8 @@ class GomokuBoard:
 
         return state
 
-    def render(self):
-        """Print a nicely aligned view of the board."""
+    def render(self) -> None:
+        """Print a human readable representation of the board."""
         # Header row with column numbers
         header = "   " + " ".join(f"{c:2d}" for c in range(self.board_size))
         print(header)
@@ -140,25 +147,29 @@ class GomokuBoard:
 
         print(f"\nCurrent player: {'X' if self.current_player == 1 else 'O'}")
 
-    def move_to_index(self, row, col):
+    def move_to_index(self, row: int, col: int) -> int:
+        """Convert ``(row, col)`` into a flat index."""
         return row * self.board_size + col
 
-    def index_to_move(self, index):
-        return divmod(index, self.board_size)  # returns (row, col)
+    def index_to_move(self, index: int) -> Tuple[int, int]:
+        """Inverse of :meth:`move_to_index`.``"""
+        return divmod(index, self.board_size)
 
-    def clone(self):
-        """Return a deep copy of the current board state."""
+    def clone(self) -> "GomokuBoard":
+        """Return a deep copy of the board."""
         new_board = GomokuBoard(board_size=self.board_size, n_in_row=self.n_in_row)
         new_board.board = self.board.copy()  # deep copy of NumPy array
         new_board.current_player = self.current_player
         new_board.last_move = self.last_move
         return new_board
 
-    def is_terminal(self):
+    def is_terminal(self) -> bool:
+        """Return ``True`` if the game has ended."""
         win, _ = self.check_win()
         return win or self.check_draw()
 
-    def evaluate_terminal(self):
+    def evaluate_terminal(self) -> float:
+        """Evaluate a terminal board from the current player's perspective."""
         win, winner = self.check_win()
         if win:
             return 1.0 if winner == self.current_player else -1.0
@@ -168,17 +179,21 @@ class GomokuBoard:
 
 
 class GomokuGameManager:
-    def __init__(self, board=None):
+    """Convenience wrapper that manages a game between two players."""
+
+    def __init__(self, board: Optional[GomokuBoard] = None) -> None:
         self.board = board if board else GomokuBoard()
-        self.winner = None
+        self.winner: Optional[int] = None
         self.finished = False
 
-    def reset(self, start_player=1):
+    def reset(self, start_player: int = 1) -> None:
+        """Reset the managed game."""
         self.board.reset(start_player=start_player)
         self.winner = None
         self.finished = False
 
-    def play_move(self, row, col):
+    def play_move(self, row: int, col: int) -> None:
+        """Apply a move and update the game state."""
         if self.finished:
             raise RuntimeError("Game is already over.")
 
@@ -196,26 +211,33 @@ class GomokuGameManager:
             self.finished = True
             self.winner = None  # Draw
 
-    def play_move_by_index(self, index):
+    def play_move_by_index(self, index: int) -> None:
+        """Apply a move specified by a flat index."""
         row, col = self.board.index_to_move(index)
         self.play_move(row, col)
 
-    def is_over(self):
+    def is_over(self) -> bool:
+        """Return ``True`` if the game has finished."""
         return self.finished
 
-    def get_winner(self):
+    def get_winner(self) -> Optional[int]:
+        """Return the winner, or ``None`` for a draw or unfinished game."""
         return self.winner
 
-    def get_current_player(self):
+    def get_current_player(self) -> int:
+        """Return the player ID whose turn it is."""
         return self.board.current_player
 
-    def get_legal_moves(self):
+    def get_legal_moves(self) -> List[Tuple[int, int]]:
+        """Return legal moves for the current board."""
         return self.board.get_legal_moves()
 
-    def get_legal_move_indices(self):
+    def get_legal_move_indices(self) -> List[int]:
+        """Return legal moves encoded as indices."""
         return [self.board.move_to_index(r, c) for (r, c) in self.get_legal_moves()]
 
-    def render(self):
+    def render(self) -> None:
+        """Delegate to :meth:`GomokuBoard.render`."""
         self.board.render()
 
 

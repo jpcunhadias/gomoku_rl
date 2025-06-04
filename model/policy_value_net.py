@@ -1,11 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Tuple, Optional
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(ResidualBlock, self).__init__()
+    """Simple residual block with two convolutional layers."""
+
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        """Create a residual block operating on ``in_channels``."""
+
+        super().__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
@@ -16,7 +21,9 @@ class ResidualBlock(nn.Module):
         if in_channels != out_channels:
             self.shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Return the output of the block for input ``x``."""
+
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         out += self.shortcut(x)  # Skip connection
@@ -24,20 +31,30 @@ class ResidualBlock(nn.Module):
 
 
 class ValueClassifierHead(nn.Module):
-    def __init__(self, input_size=15 * 15, hidden_size=128):
+    """Fully-connected head used by the value network."""
+
+    def __init__(self, input_size: int = 15 * 15, hidden_size: int = 128) -> None:
+        """Initialize the classifier with ``input_size`` and ``hidden_size``."""
+
         super().__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, 1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Return value prediction for flattened input ``x``."""
+
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         return self.fc2(x)
 
 
 class PolicyValueNet(nn.Module):
-    def __init__(self, board_size=15, num_blocks=5):
-        super(PolicyValueNet, self).__init__()
+    """Dual-headed policy and value network for Gomoku."""
+
+    def __init__(self, board_size: int = 15, num_blocks: int = 5) -> None:
+        """Construct the network architecture."""
+
+        super().__init__()
 
         # Initial Conv Layer
         self.conv_input = nn.Conv2d(3, 64, kernel_size=3, padding=1)
@@ -59,7 +76,9 @@ class PolicyValueNet(nn.Module):
         # Initialize weights
         self._init_weights()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Return policy logits and value for input ``x``."""
+
         # Input Layer
         x = F.relu(self.bn_input(self.conv_input(x)))
 
@@ -77,14 +96,18 @@ class PolicyValueNet(nn.Module):
 
         return policy, value
 
-    def extract_value_features(self, x):
+    def extract_value_features(self, x: torch.Tensor) -> torch.Tensor:
+        """Return features from the value head before the classifier."""
+
         x = F.relu(self.bn_input(self.conv_input(x)))
         x = self.residual_blocks(x)
         value = self.value_conv(x)
         return value.view(value.size(0), -1)  # Flatten
 
     @classmethod
-    def load_from_checkpoint(cls, path, board_size=15, num_blocks=5, device=None):
+    def load_from_checkpoint(
+        cls, path: str, board_size: int = 15, num_blocks: int = 5, device: Optional[str] = None
+    ) -> "PolicyValueNet":
         """
         Loads a model from a checkpoint that contains 'model_state_dict'.
         Args:
@@ -103,7 +126,9 @@ class PolicyValueNet(nn.Module):
         model.eval()  # Optional: set to eval mode by default
         return model
 
-    def _init_weights(self):
+    def _init_weights(self) -> None:
+        """Initialize weights of the policy and value heads."""
+
         nn.init.xavier_uniform_(self.policy_fc.weight)
         nn.init.zeros_(self.policy_fc.bias)
 
