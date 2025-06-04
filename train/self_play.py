@@ -6,7 +6,7 @@ from tqdm import trange
 
 from game import encoder
 from game.gomoku import GomokuBoard
-from train.augmentation import augment_board_state
+from train.augmentation import augment_board_state, augment_data
 from train.replay_buffer import ReplayBuffer
 
 
@@ -122,7 +122,7 @@ def run_selfplay(config, buffer_save_path=None):
         player2=player2,
         buffer=buffer,
         temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
-        augment_fn=augment_board_state,
+        augment_fn=augment_data,
         verbose=False,
     )
 

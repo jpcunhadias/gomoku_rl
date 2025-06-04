@@ -48,3 +48,18 @@ def augment_board_state(board_tensor: torch.Tensor) -> torch.Tensor:
     augmented = transform(board_tensor)
 
     return augmented
+
+
+def augment_data(data):
+    """Apply ``augment_board_state`` to each sample in the list.
+
+    Args:
+        data (list): Sequence of ``(state, policy, value)`` tuples.
+
+    Returns:
+        list: List with augmented state tensors.
+    """
+    return [
+        (augment_board_state(state), policy, value)
+        for state, policy, value in data
+    ]
