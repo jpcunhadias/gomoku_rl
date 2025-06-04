@@ -4,7 +4,8 @@ from mcts.mcts import MCTS
 from cli.play.utils import UniformEvaluator, play_game
 
 
-def play_mcts_pure_vs_random():
+def play_mcts_pure_vs_random() -> None:
+    """Play a game between a pure MCTS agent and a random agent."""
     board = GomokuBoard()
     evaluator = UniformEvaluator()
     mcts = MCTS(evaluator_fn=evaluator, c_puct=1.5, n_simulations=100)
