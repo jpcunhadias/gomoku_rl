@@ -8,7 +8,7 @@ from train.self_play import SelfPlayRunner
 
 
 def test_self_play_game_populates_buffer():
-    model = PolicyValueNet(board_size=15)
+    model = PolicyValueNet(board_size=8)
     evaluator = NeuralEvaluator(model)
     buffer = ReplayBuffer(max_size=100)
 
@@ -32,8 +32,8 @@ def test_self_play_game_populates_buffer():
     assert len(buffer) > 0, "Replay buffer is empty after self-play!"
 
     states, policies, values = buffer.sample(1)
-    assert states[0].shape == (3, 15, 15)
-    assert policies[0].shape == (15, 15)
+    assert states[0].shape == (3, 8, 8)
+    assert policies[0].shape == (8, 8)
     assert values[0].item() in [-1, 0, 1]
 
 

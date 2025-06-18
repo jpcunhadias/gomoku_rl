@@ -28,10 +28,10 @@ print(f"Replay buffer loaded with {len(buffer)} samples.")
 # === Initialize model ===
 if resume_training and os.path.exists(checkpoint_path):
     print(f"Loading model from checkpoint: {checkpoint_path}")
-    model = PolicyValueNet.load_from_checkpoint(checkpoint_path, board_size=15)
+    model = PolicyValueNet.load_from_checkpoint(checkpoint_path, board_size=8)
 else:
     print("Initializing new model from scratch.")
-    model = PolicyValueNet(board_size=15)
+    model = PolicyValueNet(board_size=8)
 
 # === Start training ===
 print("Starting training...")

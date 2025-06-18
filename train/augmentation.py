@@ -4,7 +4,7 @@ augmentation.py
 Board state augmentation utilities for self-play data enhancement.
 Applies random flips, rotations, or mirrors to the board state tensor.
 
-Input tensor shape: [3, 15, 15]
+Input tensor shape: [3, 8, 8]
 Channels:
     0 - Current player's stones
     1 - Opponent's stones
@@ -20,7 +20,7 @@ def augment_board_state(board_tensor: torch.Tensor) -> torch.Tensor:
     Apply random augmentation to the board tensor with 50% probability.
 
     Args:
-        board_tensor (torch.Tensor): A tensor of shape [3, 15, 15].
+        board_tensor (torch.Tensor): A tensor of shape [3, 8, 8].
 
     Returns:
         torch.Tensor: Augmented tensor (or original if no augmentation applied).

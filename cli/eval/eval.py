@@ -15,7 +15,7 @@ def evaluate_model_vs_pure_mcts(
     model: nn.Module,
     device: str,
     num_games: int = 20,
-    board_size: int = 15,
+    board_size: int = 8,
     num_simulations: int = 100,
     writer: Optional[SummaryWriter] = None,
     global_step: Optional[int] = None,
