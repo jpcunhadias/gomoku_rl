@@ -41,7 +41,8 @@ class AlphaZeroTrainer:
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
         self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
-        self.value_loss_fn = nn.BCEWithLogitsLoss()
+        # Three-class classification: loss, draw, win
+        self.value_loss_fn = nn.CrossEntropyLoss()
         self.best_value_loss = float("inf")
         self.best_epoch = None
 
@@ -73,15 +74,12 @@ class AlphaZeroTrainer:
         Args:
             policy_logits (Tensor): Raw logits from policy head.
             target_policy (Tensor): Target probabilities (π from MCTS).
-            value_pred (Tensor): Scalar value prediction from value head.
-            target_value (Tensor): Actual game result where ``1.0`` indicates a
-                win and ``0.0`` represents either a loss or a draw.
+            value_pred (Tensor): Logits from the 3-class value head.
+            target_value (Tensor): Game result encoded as 0=loss, 1=draw, 2=win.
         """
         log_probs = F.log_softmax(policy_logits, dim=1)
         policy_loss = self.policy_loss_fn(log_probs, target_policy)
-        value_loss = self.value_loss_fn(
-            value_pred.view(-1), target_value.float().view(-1)
-        )
+        value_loss = self.value_loss_fn(value_pred, target_value.view(-1))
 
         # total_loss = policy_loss + value_loss
         total_loss = policy_loss * 0.1 + value_loss * 1.0
@@ -120,7 +118,7 @@ class AlphaZeroTrainer:
 
                 states = states.to(self.device)
                 target_policies = target_policies.to(self.device)
-                target_values = ((target_values + 1) / 2).to(self.device)
+                target_values = target_values.to(self.device)
 
                 action_size = self.model.policy_fc.out_features
                 target_policies = target_policies.view(-1, action_size)
@@ -131,26 +129,22 @@ class AlphaZeroTrainer:
                 # Collect stats
                 if debug:
                     with torch.no_grad():
-                        value_mean = value_pred.mean().item()
-                        value_std = value_pred.std().item()
+                        probs = torch.softmax(value_pred, dim=1)
+                        expected = probs[:, 2] - probs[:, 0]
+                        value_mean = expected.mean().item()
+                        value_std = expected.std().item()
                         value_preds_this_epoch.append((value_mean, value_std))
 
                     # Log value head predictions (first 8 examples only)
                     with open(value_debug_path, "a") as f:
                         f.write(f"\nEpoch {epoch}, Step {step}:\n")
-                        preds = value_pred.detach().cpu().squeeze().tolist()
-                        targets = target_values.detach().cpu().squeeze().tolist()
+                        probs = torch.softmax(value_pred.detach().cpu(), dim=1)
+                        expected = probs[:, 2] - probs[:, 0]
+                        preds = expected.tolist()
+                        targets = target_values.detach().cpu().tolist()
                         for pred, target in zip(preds[:8], targets[:8]):
-                            pred_val = (
-                                pred[0] if isinstance(pred, (list, tuple)) else pred
-                            )
-                            target_val = (
-                                target[0]
-                                if isinstance(target, (list, tuple))
-                                else target
-                            )
                             f.write(
-                                f"  z: {float(target_val):.4f}, v: {float(pred_val):.4f}\n"
+                                f"  z: {target}, v: {float(pred):.4f}\n"
                             )
 
                 loss, p_loss, v_loss = self.compute_loss(

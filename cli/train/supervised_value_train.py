@@ -17,10 +17,7 @@ with open("checkpoints/replay_buffer.pkl", "rb") as f:
 states, _, z = buffer.sample(len(buffer))
 
 X = states
-
-y = torch.tensor(
-    [1.0 if val == 1.0 else 0.0 for val in z.view(-1)], dtype=torch.float32
-).unsqueeze(1)
+y = z
 
 dataset = TensorDataset(X, y)
 data_loader = DataLoader(dataset, batch_size=128, shuffle=True)
@@ -30,7 +27,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = PolicyValueNet(board_size=8).to(device)
 
 # === Training Setup ===
-criterion = nn.BCEWithLogitsLoss()
+criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 loss_history = []
@@ -56,8 +53,8 @@ for epoch in range(1, 11):
 
         total_loss += loss.item() * batch_x.size(0)
 
-        pred_binary = (torch.sigmoid(value_pred) >= 0.5).float()
-        correct += (pred_binary == batch_y).sum().item()
+        pred_class = value_pred.argmax(dim=1)
+        correct += (pred_class == batch_y).sum().item()
         total += batch_y.size(0)
 
     avg_loss = total_loss / total

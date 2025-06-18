@@ -38,7 +38,8 @@ class ValueClassifierHead(nn.Module):
 
         super().__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, 1)
+        # Output logits for three classes: loss, draw, win
+        self.fc2 = nn.Linear(hidden_size, 3)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Return value prediction for flattened input ``x``."""
