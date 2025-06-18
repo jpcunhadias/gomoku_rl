@@ -8,12 +8,12 @@ from train.train_loop import AlphaZeroTrainer
 def test_train_loop_runs_without_error(tmp_path):
     # Create a small fake buffer
     buffer = ReplayBuffer(max_size=10)
-    dummy_state = torch.zeros(3, 15, 15)
-    dummy_pi = torch.ones(15, 15) / 225.0
+    dummy_state = torch.zeros(3, 8, 8)
+    dummy_pi = torch.ones(8, 8) / 64.0
     for _ in range(10):
         buffer.add([(dummy_state, dummy_pi, 1.0)])
 
-    model = PolicyValueNet(board_size=15)
+    model = PolicyValueNet(board_size=8)
     config = SimpleNamespace(
         batch_size=2,
         learning_rate=1e-3,

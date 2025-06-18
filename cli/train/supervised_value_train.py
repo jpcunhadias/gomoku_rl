@@ -27,7 +27,7 @@ data_loader = DataLoader(dataset, batch_size=128, shuffle=True)
 
 # === Model ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = PolicyValueNet(board_size=15).to(device)
+model = PolicyValueNet(board_size=8).to(device)
 
 # === Training Setup ===
 criterion = nn.BCEWithLogitsLoss()
