@@ -11,7 +11,7 @@ def test_train_loop_runs_without_error(tmp_path):
     dummy_state = torch.zeros(3, 8, 8)
     dummy_pi = torch.ones(8, 8) / 64.0
     for _ in range(10):
-        buffer.add([(dummy_state, dummy_pi, 1.0)])
+        buffer.add([(dummy_state, dummy_pi, 2)])
 
     model = PolicyValueNet(board_size=8)
     config = SimpleNamespace(
