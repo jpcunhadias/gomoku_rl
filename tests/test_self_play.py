@@ -34,7 +34,7 @@ def test_self_play_game_populates_buffer():
     states, policies, values = buffer.sample(1)
     assert states[0].shape == (3, 8, 8)
     assert policies[0].shape == (8, 8)
-    assert values[0].item() in [-1, 0, 1]
+    assert values[0].item() in [0, 1, 2]
 
 
 if __name__ == "__main__":
