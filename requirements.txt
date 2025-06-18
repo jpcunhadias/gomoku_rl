@@ -24,6 +24,7 @@ tensorboard>=2.10  # For logging and visualization
 
 # Formatting and linting
 ruff>=0.0.14
+black>=23.3.0
 
 # testing
 pytest>=7.0

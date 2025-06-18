@@ -12,15 +12,16 @@ def test_policy_value_net_shape_and_value_range():
     policy, value = model(dummy_input)
 
     # Check the shapes
-    assert policy.shape == (1, 225), (
-        f"Expected policy shape [1, 225], got {policy.shape}"
-    )
+    assert policy.shape == (
+        1,
+        225,
+    ), f"Expected policy shape [1, 225], got {policy.shape}"
     assert value.shape == (1, 1), f"Expected value shape [1, 1], got {value.shape}"
 
     # Check value range for [-1, 1]
-    assert -2.0 <= value.item() <= 2.0, (
-        f"Value should be between -2 and 2 for untrained model, got {value.item()}"
-    )
+    assert (
+        -2.0 <= value.item() <= 2.0
+    ), f"Value should be between -2 and 2 for untrained model, got {value.item()}"
 
     print("Shape and value range test passed!")
 
@@ -47,15 +48,16 @@ def test_fixed_input():
     policy, value = model(fixed_board)
 
     # Check shapes
-    assert policy.shape == (1, 225), (
-        f"Expected policy shape [1, 225], got {policy.shape}"
-    )
+    assert policy.shape == (
+        1,
+        225,
+    ), f"Expected policy shape [1, 225], got {policy.shape}"
     assert value.shape == (1, 1), f"Expected value shape [1, 1], got {value.shape}"
 
     # Check value output range
-    assert value.item() >= -1 and value.item() <= 1, (
-        f"Value should be between -1 and 1, got {value.item()}"
-    )
+    assert (
+        value.item() >= -1 and value.item() <= 1
+    ), f"Value should be between -1 and 1, got {value.item()}"
 
     print("Fixed input test passed!")
 
@@ -70,9 +72,9 @@ def test_random_boards():
         policy, value = model(random_input)
 
         # Check value range for [-1, 1]
-        assert -2.0 <= value.item() <= 2.0, (
-            f"Value should be between -2 and 2 for untrained model, got {value.item()}"
-        )
+        assert (
+            -2.0 <= value.item() <= 2.0
+        ), f"Value should be between -2 and 2 for untrained model, got {value.item()}"
 
     print("Random board test passed!")
 

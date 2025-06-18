@@ -33,7 +33,7 @@ class ResidualBlock(nn.Module):
 class ValueClassifierHead(nn.Module):
     """Fully-connected head used by the value network."""
 
-    def __init__(self, input_size: int = 15 * 15, hidden_size: int = 128) -> None:
+    def __init__(self, input_size: int, hidden_size: int = 128) -> None:
         """Initialize the classifier with ``input_size`` and ``hidden_size``."""
 
         super().__init__()
@@ -51,7 +51,7 @@ class ValueClassifierHead(nn.Module):
 class PolicyValueNet(nn.Module):
     """Dual-headed policy and value network for Gomoku."""
 
-    def __init__(self, board_size: int = 15, num_blocks: int = 5) -> None:
+    def __init__(self, board_size: int = 8, num_blocks: int = 5) -> None:
         """Construct the network architecture."""
 
         super().__init__()
@@ -106,7 +106,11 @@ class PolicyValueNet(nn.Module):
 
     @classmethod
     def load_from_checkpoint(
-        cls, path: str, board_size: int = 15, num_blocks: int = 5, device: Optional[str] = None
+        cls,
+        path: str,
+        board_size: int = 15,
+        num_blocks: int = 5,
+        device: Optional[str] = None,
     ) -> "PolicyValueNet":
         """
         Loads a model from a checkpoint that contains 'model_state_dict'.

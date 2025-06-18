@@ -10,7 +10,10 @@ class MCTS:
     """Simple Monte-Carlo Tree Search implementation."""
 
     def __init__(
-        self, evaluator_fn: Callable[[Any], Any], c_puct: float = 1.0, n_simulations: int = 800
+        self,
+        evaluator_fn: Callable[[Any], Any],
+        c_puct: float = 1.0,
+        n_simulations: int = 800,
     ) -> None:
         """Create a new MCTS instance.
 

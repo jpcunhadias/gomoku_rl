@@ -4,7 +4,7 @@ from typing import Optional
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
-from cli.play.utils import UniformEvaluator, play_game
+from cli.play.utils import TerminalRolloutEvaluator, play_game
 from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer
 from mcts.mcts import MCTS
@@ -40,7 +40,6 @@ def evaluate_model_vs_pure_mcts(
     # Create evaluators
     model.eval()
     neural_evaluator = NeuralEvaluator(model, device)
-    uniform_evaluator = UniformEvaluator()
 
     model_wins = 0
     pure_mcts_wins = 0
@@ -56,13 +55,13 @@ def evaluate_model_vs_pure_mcts(
                 temperature=1e-3,
             )
             player2 = MCTSPlayer(
-                MCTS(uniform_evaluator, n_simulations=num_simulations),
+                MCTS(TerminalRolloutEvaluator(), n_simulations=num_simulations),
                 temperature=1e-3,
             )
             first_player_is_model = True
         else:
             player1 = MCTSPlayer(
-                MCTS(uniform_evaluator, n_simulations=num_simulations),
+                MCTS(TerminalRolloutEvaluator(), n_simulations=num_simulations),
                 temperature=1e-3,
             )
             player2 = MCTSPlayer(
@@ -71,7 +70,7 @@ def evaluate_model_vs_pure_mcts(
             )
             first_player_is_model = False
 
-        winner = play_game(board, player1, player2)
+        winner = play_game(board, player1, player2, verbose=True)
 
         if winner == 0:
             draws += 1
