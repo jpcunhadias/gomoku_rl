@@ -33,10 +33,17 @@ class NeuralEvaluator:
             board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
         )
 
+        board_size = board.board_size
+
         with torch.no_grad():
             policy_logits, value = self.model(tensor_input)
 
-        policy = torch.softmax(policy_logits.view(-1), dim=0).view(15, 15).cpu().numpy()
+        policy = (
+            torch.softmax(policy_logits.view(-1), dim=0)
+            .view(board_size, board_size)
+            .cpu()
+            .numpy()
+        )
 
         legal_moves = board.get_legal_moves()
         action_priors = [(move, policy[move[0], move[1]]) for move in legal_moves]

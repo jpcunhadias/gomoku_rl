@@ -13,7 +13,8 @@ def main():
     # === Load Model ===
     model = PolicyValueNet(board_size=15)
     checkpoint = torch.load(
-        "checkpoints/policy_value_net_epochbest.pth", map_location="cpu"
+        "checkpoints/policy_value_net_best.pth",
+        map_location="cuda" if torch.cuda.is_available() else "cpu",
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     print(f"Loaded model from epoch: {checkpoint['epoch']}")

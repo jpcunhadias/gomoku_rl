@@ -112,5 +112,7 @@ class MCTSPlayer:
         noise = np.random.dirichlet([self.dirichlet_alpha] * len(actions))
         noisy_probs: Dict[Any, float] = {}
         for a, n in zip(actions, noise):
-            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[a] + self.dirichlet_epsilon * n
+            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[
+                a
+            ] + self.dirichlet_epsilon * n
         return noisy_probs

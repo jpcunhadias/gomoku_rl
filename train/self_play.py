@@ -1,24 +1,35 @@
 import os
+from typing import Callable, List, Tuple, Optional, Any
+
 import numpy as np
 import torch
-from typing import Callable, List, Tuple, Optional, Any
 from tqdm import trange
 
 from game import encoder
 from game.gomoku import GomokuBoard
+from game.player import MCTSPlayer
+from mcts.mcts import MCTS
+from mcts.neural_evaluator import NeuralEvaluator
+from model.policy_value_net import PolicyValueNet
 from train.augmentation import augment_data
 from train.replay_buffer import ReplayBuffer
 
 
 class SelfPlayRunner:
     """Orchestrates self-play games between two agents."""
+
     def __init__(
         self,
         player1,
         player2,
         buffer: ReplayBuffer,
         temperature_schedule: Optional[Callable[[int], float]] = None,
-        augment_fn: Optional[Callable[[List[Tuple[torch.Tensor, torch.Tensor, float]]], List[Tuple[torch.Tensor, torch.Tensor, float]]]] = None,
+        augment_fn: Optional[
+            Callable[
+                [List[Tuple[torch.Tensor, torch.Tensor, float]]],
+                List[Tuple[torch.Tensor, torch.Tensor, float]],
+            ]
+        ] = None,
         verbose: bool = False,
     ) -> None:
         self.player1 = player1
@@ -88,8 +99,9 @@ class SelfPlayRunner:
         self.buffer.add(final_data)
 
     def _create_pi_from_action(self, board: GomokuBoard, action: Any) -> torch.Tensor:
-        """Create a ``15×15`` policy tensor with ``1`` at the chosen move."""
-        pi = np.zeros((15, 15), dtype=np.float32)
+        """Create a ``board_size × board_size`` policy tensor with ``1`` at the chosen move."""
+        board_size = board.board_size
+        pi = np.zeros((board_size, board_size), dtype=np.float32)
         if isinstance(action, tuple):
             pi[action[0], action[1]] = 1.0
         else:
@@ -98,39 +110,62 @@ class SelfPlayRunner:
         return torch.from_numpy(pi)
 
 
-def run_selfplay(config: Any, buffer_save_path: Optional[str] = None) -> Tuple[Any, ReplayBuffer]:
-    """Run multiple self-play games and optionally save the buffer."""
-    from model.policy_value_net import PolicyValueNet
-    from mcts.mcts import MCTS
-    from mcts.neural_evaluator import NeuralEvaluator
-    from game.player import MCTSPlayer
+def initialize_model(
+    device: str, checkpoint_path: Optional[str] = None
+) -> PolicyValueNet:
+    model = PolicyValueNet(board_size=8).to(device)
+    if checkpoint_path and os.path.exists(checkpoint_path):
+        print(f"Loading model from checkpoint: {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint["model_state_dict"])
+    else:
+        print(
+            "No checkpoint found or checkpoint loading skipped. Initialized new PolicyValueNet."
+        )
+    return model
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = PolicyValueNet(board_size=15).to(device)
-    evaluator = NeuralEvaluator(model, device)
-
-    # Create players
+def create_players(
+    evaluator: NeuralEvaluator, n_simulations: int
+) -> Tuple[MCTSPlayer, MCTSPlayer]:
     player1 = MCTSPlayer(
-        MCTS(
-            evaluator_fn=evaluator,
-            c_puct=1.5,
-            n_simulations=config.self_play_num_simulations,
-        ),
+        MCTS(evaluator_fn=evaluator, c_puct=1.5, n_simulations=n_simulations),
         temperature=1.0,
         add_dirichlet_noise=True,
     )
     player2 = MCTSPlayer(
-        MCTS(
-            evaluator_fn=evaluator,
-            c_puct=1.5,
-            n_simulations=config.self_play_num_simulations,
-        ),
+        MCTS(evaluator_fn=evaluator, c_puct=1.5, n_simulations=n_simulations),
         temperature=1.0,
         add_dirichlet_noise=True,
     )
+    return player1, player2
 
-    buffer = ReplayBuffer(max_size=config.replay_buffer_size)
+
+def run_selfplay_pipeline(
+    config: Any,
+    load_checkpoint: bool = False,
+    buffer_save_path: Optional[str] = None,
+) -> Tuple[PolicyValueNet, ReplayBuffer]:
+    """Run a full self-play pipeline."""
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    checkpoint_path = (
+        "checkpoints/policy_value_net_best.pth" if load_checkpoint else None
+    )
+    model = initialize_model(device, checkpoint_path)
+
+    evaluator = NeuralEvaluator(model, device)
+    player1, player2 = create_players(
+        evaluator, n_simulations=config.self_play_num_simulations
+    )
+
+    if buffer_save_path and os.path.exists(buffer_save_path):
+        print(f"Loading existing replay buffer from {buffer_save_path}")
+        buffer = ReplayBuffer.load(buffer_save_path)
+    else:
+        print("No existing buffer found. Initializing new ReplayBuffer.")
+        buffer = ReplayBuffer(max_size=config.replay_buffer_size)
 
     runner = SelfPlayRunner(
         player1=player1,

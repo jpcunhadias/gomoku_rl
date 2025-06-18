@@ -3,16 +3,25 @@ from game.player import MCTSPlayer
 from typing import Any, List, Tuple
 
 
-class UniformEvaluator:
-    """Simple evaluator that assigns equal probability to all legal moves."""
+class TerminalRolloutEvaluator:
+    """Evaluator that returns +1/-1/0 if game is over, else 0."""
 
     def __call__(self, board: GomokuBoard) -> Tuple[List[Tuple[Any, float]], float]:
         legal_moves = board.get_legal_moves()
         if not legal_moves:
-            return [], 0.0  # No moves left, return empty list and neutral value
+            return [], 0.0
         prior = [(move, 1 / len(legal_moves)) for move in legal_moves]
-        value = 0.0  # Assume neutral board
-        return prior, value
+
+        if board.is_terminal():
+            winner = board.get_winner()
+            if winner == 1:
+                return prior, 1.0
+            elif winner == 2:
+                return prior, -1.0
+            else:
+                return prior, 0.0
+        else:
+            return prior, 0.0
 
 
 def play_game(board: GomokuBoard, player1, player2, verbose: bool = False) -> int:

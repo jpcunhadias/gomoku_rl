@@ -5,7 +5,7 @@ from typing import List, Tuple, Optional
 class GomokuBoard:
     """Representation of a Gomoku game board."""
 
-    def __init__(self, board_size: int = 15, n_in_row: int = 5) -> None:
+    def __init__(self, board_size: int = 8, n_in_row: int = 5) -> None:
         self.board_size = board_size
         self.n_in_row = n_in_row
         self.board = np.zeros(
@@ -128,7 +128,7 @@ class GomokuBoard:
         return state
 
     def render(self) -> None:
-        """Print a human readable representation of the board."""
+        """Print a human-readable representation of the board."""
         # Header row with column numbers
         header = "   " + " ".join(f"{c:2d}" for c in range(self.board_size))
         print(header)

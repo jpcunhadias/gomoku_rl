@@ -5,8 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-
-from typing import Any, Tuple, Optional, Union
+from typing import Any, Tuple, Optional
 
 from train.replay_buffer import ReplayBuffer
 
@@ -14,7 +13,14 @@ from train.replay_buffer import ReplayBuffer
 class AlphaZeroTrainer:
     """Trainer implementing the AlphaZero learning loop."""
 
-    def __init__(self, model: nn.Module, replay_buffer: ReplayBuffer, config: Any, device: str = "cpu") -> None:
+    def __init__(
+        self,
+        model: nn.Module,
+        replay_buffer: ReplayBuffer,
+        config: Any,
+        device: str = "cpu",
+        start_epoch: int = 1,
+    ) -> None:
         """
         AlphaZero training loop for Gomoku.
 
@@ -27,6 +33,7 @@ class AlphaZeroTrainer:
         self.model = model.to(device)
         self.replay_buffer = replay_buffer
         self.device = device
+        self.start_epoch = start_epoch
         self.batch_size = config.batch_size
         self.epochs = config.epochs
         self.steps_per_epoch = config.steps_per_epoch
@@ -38,6 +45,7 @@ class AlphaZeroTrainer:
         self.best_value_loss = float("inf")
         self.best_epoch = None
 
+        self.reload_buffer_every = getattr(config, "reload_buffer_every", 500)
         self.eval_every = getattr(config, "eval_every", 5)
         self.target_win_rate = getattr(config, "target_win_rate", 0.8)
         self.eval_num_games = getattr(config, "eval_num_games", 20)
@@ -93,10 +101,17 @@ class AlphaZeroTrainer:
             grad_log_path = os.path.join("checkpoints", "gradient_debug.log")
             value_debug_path = os.path.join("checkpoints", "value_pred_debug.log")
 
-        for epoch in range(1, self.epochs + 1):
+        for epoch in range(self.start_epoch, self.start_epoch + self.epochs):
             epoch_policy_loss = 0
             epoch_value_loss = 0
             value_preds_this_epoch = []
+
+            # === Reload buffer every N epochs
+            if epoch % self.reload_buffer_every == 0 and epoch != self.start_epoch:
+                print(
+                    f"[Trainer] Reloading replay buffer from disk at epoch {epoch}..."
+                )
+                self.replay_buffer = ReplayBuffer.load("checkpoints/replay_buffer.pkl")
 
             for step in range(self.steps_per_epoch):
                 states, target_policies, target_values = self.replay_buffer.sample(
@@ -107,7 +122,8 @@ class AlphaZeroTrainer:
                 target_policies = target_policies.to(self.device)
                 target_values = ((target_values + 1) / 2).to(self.device)
 
-                target_policies = target_policies.view(-1, 225)
+                action_size = self.model.policy_fc.out_features
+                target_policies = target_policies.view(-1, action_size)
 
                 self.optimizer.zero_grad()
                 logits, value_pred = self.model(states)
@@ -187,7 +203,7 @@ class AlphaZeroTrainer:
             if avg_v_loss < self.best_value_loss:
                 self.best_value_loss = avg_v_loss
                 self.best_epoch = epoch
-                self.save_checkpoint(epoch="best")
+                self.save_checkpoint(epoch=epoch, label="best")  # Save best model
                 print(
                     f"Best model updated (value loss = {avg_v_loss:.4f}) → saved as best"
                 )
@@ -203,7 +219,7 @@ class AlphaZeroTrainer:
                     model=self.model,
                     device=self.device,
                     num_games=self.eval_num_games,
-                    board_size=15,
+                    board_size=8,
                     num_simulations=self.eval_num_simulations,
                     writer=self.writer,
                     global_step=epoch,
@@ -227,21 +243,21 @@ class AlphaZeroTrainer:
 
         return self.best_epoch, self.best_value_loss
 
-    def save_checkpoint(self, epoch: Optional[Union[int, str]] = None) -> None:
-        """
-        Saves the model and optimizer state dicts.
-        """
+    def save_checkpoint(
+        self, epoch: Optional[int] = None, label: Optional[str] = None
+    ) -> None:
         os.makedirs(os.path.dirname(self.save_path), exist_ok=True)
         checkpoint = {
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
-            "epoch": epoch,
+            "epoch": epoch,  # Real integer epoch saved
         }
-        path = (
-            self.save_path
-            if epoch is None
-            else self.save_path.replace(".pth", f"_epoch{epoch}.pth")
-        )
+        if label is not None:
+            path = self.save_path.replace(".pth", f"_{label}.pth")  # e.g., best
+        elif epoch is not None:
+            path = self.save_path.replace(".pth", f"_epoch_{epoch}.pth")
+        else:
+            path = self.save_path
         torch.save(checkpoint, path)
         print(f"Checkpoint saved to: {path}")
 
