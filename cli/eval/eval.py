@@ -70,7 +70,7 @@ def evaluate_model_vs_pure_mcts(
             )
             first_player_is_model = False
 
-        winner = play_game(board, player1, player2, verbose=True)
+        winner = play_game(board, player1, player2, verbose=False)
 
         if winner == 0:
             draws += 1
