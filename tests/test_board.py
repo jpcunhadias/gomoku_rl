@@ -5,7 +5,7 @@ from game.gomoku import GomokuBoard
 
 def test_board_initial_state():
     board = GomokuBoard()
-    assert board.board.shape == (15, 15)
+    assert board.board.shape == (8, 8)
     assert np.all(board.board == 0)
     assert board.current_player == 1
     assert board.last_move is None
@@ -30,7 +30,7 @@ def test_illegal_move():
         board.apply_move(7, 7)  # already occupied
 
     with pytest.raises(ValueError):
-        board.apply_move(15, 15)  # out of bounds
+        board.apply_move(8, 8)  # out of bounds
 
 
 def test_win_horizontal():
@@ -49,7 +49,7 @@ def test_current_state_shape():
     board = GomokuBoard()
     board.apply_move(7, 7)
     state = board.get_current_state()
-    assert state.shape == (4, 15, 15)
+    assert state.shape == (4, 8, 8)
     assert state[0][7][7] == 0.0  # current player is player 2 now
     assert state[1][7][7] == 1.0  # opponent
     assert state[2][7][7] == 1.0  # last move marker

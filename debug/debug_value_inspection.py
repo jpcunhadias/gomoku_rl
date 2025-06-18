@@ -11,7 +11,7 @@ from model.policy_value_net import PolicyValueNet
 
 def main():
     # === Load Model ===
-    model = PolicyValueNet(board_size=15)
+    model = PolicyValueNet(board_size=8)
     checkpoint = torch.load(
         "checkpoints/policy_value_net_best.pth",
         map_location="cuda" if torch.cuda.is_available() else "cpu",

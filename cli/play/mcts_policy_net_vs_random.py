@@ -9,10 +9,10 @@ from cli.play.utils import play_game
 def play_mcts_net_vs_random() -> None:
     """Play a game between an MCTS agent using a policy net and a random agent."""
     # Create game board
-    board = GomokuBoard(board_size=15)
+    board = GomokuBoard(board_size=8)
 
     # Create policy-value network and neural evaluator
-    model = PolicyValueNet(board_size=15, num_blocks=5)
+    model = PolicyValueNet(board_size=8, num_blocks=5)
     evaluator = NeuralEvaluator(model)
     # Create MCTS using the neural evaluator
     mcts = MCTS(evaluator_fn=evaluator.evaluate, c_puct=1.5, n_simulations=100)

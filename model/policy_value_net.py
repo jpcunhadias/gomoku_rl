@@ -108,7 +108,7 @@ class PolicyValueNet(nn.Module):
     def load_from_checkpoint(
         cls,
         path: str,
-        board_size: int = 15,
+        board_size: int = 8,
         num_blocks: int = 5,
         device: Optional[str] = None,
     ) -> "PolicyValueNet":
