@@ -7,11 +7,11 @@ from model.policy_value_net import PolicyValueNet
 
 
 def test_mcts_runs_and_returns_probs():
-    board = GomokuBoard(board_size=15)
+    board = GomokuBoard(board_size=8)
     # Make one move so board is not fully empty (prevents no children)
     board.apply_move(7, 7)
 
-    model = PolicyValueNet(board_size=15, num_blocks=5)
+    model = PolicyValueNet(board_size=8, num_blocks=5)
     evaluator = NeuralEvaluator(model)
     mcts = MCTS(evaluator_fn=evaluator.evaluate, c_puct=1.0, n_simulations=10)
 
