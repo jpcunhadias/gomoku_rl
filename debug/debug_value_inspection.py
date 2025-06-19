@@ -106,6 +106,8 @@ def main() -> None:
     with torch.no_grad():
         _, value_pred = model(states)  # shape (B, 3)
 
+    print("\nSample raw value_pred logits (first 5 samples):")
+    print(value_pred[:5].cpu().numpy())
     print("value_pred shape:", value_pred.shape)
 
     # Convert logits to scalar value in [-1, 1]
