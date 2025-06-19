@@ -10,3 +10,6 @@ venv/
 data/
 models/
 .idea/
+
+# Ignore debug_related files
+debug/debug_outputs/

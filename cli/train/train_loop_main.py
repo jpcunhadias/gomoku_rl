@@ -23,26 +23,22 @@ def main() -> None:
     buffer_path = "checkpoints/replay_buffer.pkl"
 
     # === Initialize model ===
-    model = PolicyValueNet(
-        board_size=8
-    )  # Update if you need board_size or num_blocks args
+    model = PolicyValueNet(board_size=8)
+    model.to(device)
+
     optimizer = torch.optim.Adam(model.parameters())
-
-    start_epoch = 1  # Default if no checkpoint
-
+    best_value_loss = float("inf")
+    # === Load checkpoint if it exists ===
     if os.path.exists(checkpoint_path):
         print(f"Loading checkpoint from: {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=device)
 
         model.load_state_dict(checkpoint["model_state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        model.to(device)
-
-        start_epoch = checkpoint.get("epoch", 1)
-        print(f"Loaded model from epoch: {start_epoch}")
+        best_value_loss = checkpoint.get("best_value_loss", float("inf"))
+        print(f"Loaded model from epoch: {checkpoint.get('epoch', '?')}")
     else:
         print("No checkpoint found. Initializing new model.")
-        model.to(device)
 
     # === Load replay buffer ===
     if os.path.exists(buffer_path):
@@ -56,10 +52,11 @@ def main() -> None:
     # === Initialize trainer ===
     trainer = AlphaZeroTrainer(
         model=model,
+        optimizer=optimizer,
         replay_buffer=replay_buffer,
         config=config,
         device=device,
-        start_epoch=start_epoch,
+        best_value_loss=best_value_loss,
     )
 
     # === Start training ===

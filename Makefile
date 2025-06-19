@@ -1,7 +1,7 @@
 # Makefile for AlphaZero Project
 # Run `make help` to see available commands
 
-.PHONY: help lint lint-fix format format-ruff format-black format-all clean all self-play train
+.PHONY: help lint lint-fix format format-ruff format-black format-all clean all self-play train debug analyze_buffer
 
 # Set PYTHONPATH to current directory (project root)
 export PYTHONPATH := $(shell pwd)
@@ -25,6 +25,12 @@ self-play:
 
 train:
 	python cli/train/train_loop_main.py
+
+debug:
+	python debug/debug_value_inspection.py
+
+analyze_buffer:
+	python cli/self_play/analyze_buffer.py
 
 # Lint with Ruff (check only)
 lint:

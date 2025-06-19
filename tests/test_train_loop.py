@@ -14,6 +14,8 @@ def test_train_loop_runs_without_error(tmp_path):
         buffer.add([(dummy_state, dummy_pi, 2)])
 
     model = PolicyValueNet(board_size=8)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
     config = SimpleNamespace(
         batch_size=2,
         learning_rate=1e-3,
@@ -22,7 +24,13 @@ def test_train_loop_runs_without_error(tmp_path):
         save_path=str(tmp_path / "test_model.pth"),
     )
 
-    trainer = AlphaZeroTrainer(model, buffer, config, device="cpu")
+    trainer = AlphaZeroTrainer(
+        model=model,
+        optimizer=optimizer,
+        replay_buffer=buffer,
+        config=config,
+        device="cpu",
+    )
     best_epoch, best_value_loss = trainer.train()
 
     assert best_epoch is not None

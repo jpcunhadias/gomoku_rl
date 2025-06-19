@@ -12,15 +12,16 @@ def test_board_initial_state():
 
 
 def test_apply_and_toggle():
-    board = GomokuBoard()
-    board.apply_move(7, 7)
-    assert board.board[7, 7] == 1
+    board = GomokuBoard()  # Default board_size=8
+    board.apply_move(7, 6)
+    assert board.board[7, 6] == 1
     assert board.current_player == 2
-    assert board.last_move == (7, 7)
+    assert board.last_move == (7, 6)
 
-    board.apply_move(7, 8)
-    assert board.board[7, 8] == 2
+    board.apply_move(7, 7)
+    assert board.board[7, 7] == 2
     assert board.current_player == 1
+    assert board.last_move == (7, 7)
 
 
 def test_illegal_move():
