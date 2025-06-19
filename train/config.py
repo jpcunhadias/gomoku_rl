@@ -4,7 +4,7 @@ from types import SimpleNamespace
 def get_config() -> SimpleNamespace:
     return SimpleNamespace(
         num_self_play_games=50,
-        self_play_num_simulations=400,
+        self_play_num_simulations=800,
         batch_size=128,
         learning_rate=1e-3,
         epochs=1000,
@@ -15,5 +15,5 @@ def get_config() -> SimpleNamespace:
         eval_every=100,
         target_win_rate=0.8,
         eval_num_games=20,
-        eval_num_simulations=3200,
+        eval_num_simulations=4800,
     )
