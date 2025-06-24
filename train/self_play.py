@@ -1,4 +1,5 @@
 import os
+from types import SimpleNamespace
 from typing import Callable, List, Tuple, Optional, Any
 
 import numpy as np
@@ -9,7 +10,7 @@ from game import encoder
 from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer
 from mcts.mcts import MCTS
-from mcts.neural_evaluator import NeuralEvaluator
+from mcts.evaluators import NeuralEvaluator
 from model.policy_value_net import PolicyValueNet
 from train.augmentation import augment_data
 from train.replay_buffer import ReplayBuffer
@@ -127,18 +128,25 @@ def initialize_model(
 
 
 def create_players(
-    evaluator: NeuralEvaluator, n_simulations: int
+    evaluator: NeuralEvaluator,
+    n_simulations: int,
+    config: SimpleNamespace,
 ) -> Tuple[MCTSPlayer, MCTSPlayer]:
-    player1 = MCTSPlayer(
-        MCTS(evaluator_fn=evaluator, c_puct=1.5, n_simulations=n_simulations),
-        temperature=1.0,
-        add_dirichlet_noise=True,
-    )
-    player2 = MCTSPlayer(
-        MCTS(evaluator_fn=evaluator, c_puct=1.5, n_simulations=n_simulations),
-        temperature=1.0,
-        add_dirichlet_noise=True,
-    )
+    """Create two MCTS players using parameters from config."""
+    player_kwargs = {
+        "temperature": config.temperature,
+        "add_dirichlet_noise": config.add_dirichlet_noise,
+    }
+
+    mcts_kwargs = {
+        "evaluator_fn": evaluator,
+        "c_puct": config.c_puct,
+        "n_simulations": n_simulations,
+    }
+
+    player1 = MCTSPlayer(MCTS(**mcts_kwargs), **player_kwargs)
+    player2 = MCTSPlayer(MCTS(**mcts_kwargs), **player_kwargs)
+
     return player1, player2
 
 
@@ -158,7 +166,7 @@ def run_selfplay_pipeline(
 
     evaluator = NeuralEvaluator(model, device)
     player1, player2 = create_players(
-        evaluator, n_simulations=config.self_play_num_simulations
+        evaluator, n_simulations=config.self_play_num_simulations, config=config
     )
 
     if buffer_save_path and os.path.exists(buffer_save_path):

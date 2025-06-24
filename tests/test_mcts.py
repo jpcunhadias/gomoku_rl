@@ -2,7 +2,7 @@ import pytest
 
 from game.gomoku import GomokuBoard
 from mcts.mcts import MCTS
-from mcts.neural_evaluator import NeuralEvaluator
+from mcts.evaluators import NeuralEvaluator
 from model.policy_value_net import PolicyValueNet
 
 

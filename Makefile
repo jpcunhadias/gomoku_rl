@@ -1,7 +1,8 @@
 # Makefile for AlphaZero Project
 # Run `make help` to see available commands
 
-.PHONY: help lint lint-fix format format-ruff format-black format-all clean all self-play train debug analyze_buffer
+.PHONY: help lint lint-fix format format-ruff format-black format-all clean all \
+        self-play train debug analyze_buffer eval
 
 # Set PYTHONPATH to current directory (project root)
 export PYTHONPATH := $(shell pwd)
@@ -9,22 +10,29 @@ export PYTHONPATH := $(shell pwd)
 # Show available commands
 help:
 	@echo "Available commands:"
-	@echo " self-play    - Run self-play script"
-	@echo " train         - Run training loop"
-	@echo "  lint           - Run Ruff linter (check only)"
-	@echo "  lint-fix       - Run Ruff linter and auto-fix"
-	@echo "  format         - Run both Ruff and Black formatters"
-	@echo "  format-ruff    - Format code with Ruff"
-	@echo "  format-black   - Format code with Black (PEP8)"
-	@echo "  format-all     - Alias for 'format'"
-	@echo "  clean          - Placeholder for cleaning build artifacts"
-	@echo "  all            - Run lint-fix and format"
+	@echo "  self-play       - Run self-play script"
+	@echo "  train           - Run training loop"
+	@echo "  eval            - Evaluate model vs. pure MCTS"
+	@echo "  debug           - Run debug script for value inspection"
+	@echo "  analyze_buffer  - Analyze buffer contents"
+	@echo "  lint            - Run Ruff linter (check only)"
+	@echo "  lint-fix        - Run Ruff linter and auto-fix"
+	@echo "  format          - Run both Ruff and Black formatters"
+	@echo "  format-ruff     - Format code with Ruff"
+	@echo "  format-black    - Format code with Black (PEP8)"
+	@echo "  format-all      - Alias for 'format'"
+	@echo "  clean           - Remove artifacts (checkpoints/logs)"
+	@echo "  all             - Run lint-fix and format"
 
+# Core functionality
 self-play:
 	python cli/self_play/self_play_main.py
 
 train:
 	python cli/train/train_loop_main.py
+
+eval:
+	python cli/eval/eval.py --checkpoint checkpoints/policy_value_net_best.pth --num_games 20 --board_size 8 --eval_sim 400
 
 debug:
 	python debug/debug_value_inspection.py
@@ -32,30 +40,26 @@ debug:
 analyze_buffer:
 	python cli/self_play/analyze_buffer.py
 
-# Lint with Ruff (check only)
+# Code quality
 lint:
 	ruff check .
 
-# Lint with Ruff and fix issues
 lint-fix:
 	ruff check . --fix
 
-# Format with Ruff
 format-ruff:
 	ruff format .
 
-# Format with Black
 format-black:
 	black .
 
-# Run both Ruff and Black formatters
 format format-all: format-ruff format-black
 
-# Clean up artifacts (optional - update if needed)
+# Cleanup
 clean:
 	@echo "Cleaning checkpoints and logs..."
 	@find checkpoints -type f ! -name ".gitkeep" -delete
 	@find logs -type f ! -name ".gitkeep" -delete
 
-# Run full code quality pipeline
+# Combined quality check
 all: lint-fix format

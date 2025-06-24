@@ -1,27 +1,5 @@
 from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer
-from typing import Any, List, Tuple
-
-
-class TerminalRolloutEvaluator:
-    """Evaluator that returns +1/-1/0 if game is over, else 0."""
-
-    def __call__(self, board: GomokuBoard) -> Tuple[List[Tuple[Any, float]], float]:
-        legal_moves = board.get_legal_moves()
-        if not legal_moves:
-            return [], 0.0
-        prior = [(move, 1 / len(legal_moves)) for move in legal_moves]
-
-        if board.is_terminal():
-            winner = board.get_winner()
-            if winner == 1:
-                return prior, 1.0
-            elif winner == 2:
-                return prior, -1.0
-            else:
-                return prior, 0.0
-        else:
-            return prior, 0.0
 
 
 def play_game(board: GomokuBoard, player1, player2, verbose: bool = False) -> int:
@@ -45,10 +23,12 @@ def play_game(board: GomokuBoard, player1, player2, verbose: bool = False) -> in
             board.render()
 
         player = players[current_player]
-        action = player.get_action(board)
 
         if verbose:
-            print(f"\n{player} plays {action}")
+            current_color = "X" if board.current_player == 1 else "O"
+            print(f"Current player: {current_color} ({player.name})")
+
+        action = player.get_action(board)
 
         board.apply_move(*action)
 

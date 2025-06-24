@@ -6,12 +6,13 @@ from train.train_loop import AlphaZeroTrainer
 
 
 def test_train_loop_runs_without_error(tmp_path):
-    # Create a small fake buffer
+    # Create a small fake buffer with all class labels: 0 (loss), 1 (draw), 2 (win)
     buffer = ReplayBuffer(max_size=10)
     dummy_state = torch.zeros(3, 8, 8)
     dummy_pi = torch.ones(8, 8) / 64.0
-    for _ in range(10):
-        buffer.add([(dummy_state, dummy_pi, 2)])
+    outcomes = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0]  # covers all classes
+    for z in outcomes:
+        buffer.add([(dummy_state.clone(), dummy_pi.clone(), z)])
 
     model = PolicyValueNet(board_size=8)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)

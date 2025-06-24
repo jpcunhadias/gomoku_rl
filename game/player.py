@@ -62,6 +62,7 @@ class MCTSPlayer:
         add_dirichlet_noise: bool = False,
         dirichlet_alpha: float = 0.3,
         dirichlet_epsilon: float = 0.25,
+        name: str = "MCTSPlayer",
     ) -> None:
         self.mcts = mcts
         self.temperature = temperature
@@ -69,9 +70,10 @@ class MCTSPlayer:
         self.dirichlet_alpha = dirichlet_alpha
         self.dirichlet_epsilon = dirichlet_epsilon
         self.move_number = 0  # Track move number internally
+        self.name = name
 
     def __repr__(self) -> str:
-        return f"MCTSPlayer(temperature={self.temperature})"
+        return f"{self.name}(temperature={self.temperature})"
 
     def set_temperature(self, temp: float) -> None:
         """Set the sampling temperature used when selecting moves."""
