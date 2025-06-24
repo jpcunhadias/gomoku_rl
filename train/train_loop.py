@@ -1,26 +1,46 @@
 import os
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
-
+from collections import Counter
 from typing import Any, Tuple, Optional
 
+import torch
+import torch.nn.functional as F
+import torch.optim as optim
+from torch import nn
+from torch.utils.tensorboard import SummaryWriter
+
+from model.policy_value_net import PolicyValueNet
 from train.replay_buffer import ReplayBuffer
+
+
+def compute_class_weights(buffer: ReplayBuffer, device: str) -> torch.Tensor:
+    # Sample target values from full buffer (or all if it's small)
+    all_targets = (
+        buffer.get_all_targets()
+    )  # assumes buffer stores (state, policy, value)
+    counts = Counter(all_targets)
+
+    # Map: 0 = loss, 1 = draw, 2 = win
+    total = sum(counts.values())
+    weights = {cls: total / counts[cls] for cls in [0, 1, 2]}  # inverse frequency
+    norm_factor = sum(weights.values()) / 3
+    weights_tensor = torch.tensor(
+        [weights[i] / norm_factor for i in [0, 1, 2]], dtype=torch.float32
+    ).to(device)
+
+    return weights_tensor
 
 
 class AlphaZeroTrainer:
     """Trainer implementing the AlphaZero learning loop."""
 
     def __init__(
-            self,
-            model: nn.Module,
-            optimizer: optim.Optimizer,
-            replay_buffer: ReplayBuffer,
-            config: Any,
-            device: str = "cpu",
-            best_value_loss: float = float("inf"),
+        self,
+        model: PolicyValueNet,
+        optimizer: optim.Optimizer,
+        replay_buffer: ReplayBuffer,
+        config: Any,
+        device: str = "cpu",
+        best_value_loss: float = float("inf"),
     ) -> None:
         """
         AlphaZero training loop for Gomoku.
@@ -34,6 +54,7 @@ class AlphaZeroTrainer:
         self.model = model.to(device)
         self.optimizer = optimizer
         self.replay_buffer = replay_buffer
+        self.config = config
         self.device = device
         self.batch_size = config.batch_size
         self.epochs = config.epochs
@@ -42,7 +63,8 @@ class AlphaZeroTrainer:
 
         self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
         # Three-class classification: loss, draw, win
-        self.value_loss_fn = nn.CrossEntropyLoss()
+        class_weights = compute_class_weights(replay_buffer, device)
+        self.value_loss_fn = nn.CrossEntropyLoss(weight=class_weights)
         self.best_value_loss = best_value_loss
         self.best_epoch = 0
 
@@ -81,7 +103,6 @@ class AlphaZeroTrainer:
         policy_loss = self.policy_loss_fn(log_probs, target_policy)
         value_loss = self.value_loss_fn(value_pred, target_value.view(-1))
 
-        # total_loss = policy_loss + value_loss
         total_loss = policy_loss * 0.1 + value_loss * 1.0
 
         return total_loss, policy_loss.item(), value_loss.item()
@@ -204,9 +225,9 @@ class AlphaZeroTrainer:
                 win_rate = evaluate_model_vs_pure_mcts(
                     model=self.model,
                     device=self.device,
+                    config=self.config,
                     num_games=self.eval_num_games,
                     board_size=8,
-                    num_simulations=self.eval_num_simulations,
                     writer=self.writer,
                     global_step=epoch,
                 )
@@ -228,7 +249,7 @@ class AlphaZeroTrainer:
         return self.best_epoch, self.best_value_loss
 
     def save_checkpoint(
-            self, epoch: int, label: str = "latest", best_value_loss: Optional[float] = None
+        self, epoch: int, label: str = "latest", best_value_loss: Optional[float] = None
     ):
         checkpoint = {
             "model_state_dict": self.model.state_dict(),
@@ -241,11 +262,13 @@ class AlphaZeroTrainer:
         torch.save(checkpoint, f"checkpoints/policy_value_net_{label}.pth")
 
 
-def run_training(model: nn.Module, buffer: ReplayBuffer, config: Any) -> None:
+def run_training(
+    model: PolicyValueNet, optimizer: optim.Optimizer, buffer: ReplayBuffer, config: Any
+) -> None:
     """Utility to create a trainer and start training."""
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    trainer = AlphaZeroTrainer(model, buffer, config, device)
+    trainer = AlphaZeroTrainer(model, optimizer, buffer, config, device)
     trainer.train()

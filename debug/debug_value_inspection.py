@@ -65,7 +65,7 @@ def plot_pca(features: torch.Tensor, z: np.ndarray) -> None:
     color_map = {
         -1.0: "tab:orange",  # loss
         0.0: "tab:gray",  # draw
-        1.0: "tab:blue"  # win
+        1.0: "tab:blue",  # win
     }
     colors = [color_map.get(label, "black") for label in z]
 

@@ -1,7 +1,7 @@
 import pytest
 from game.player import MCTSPlayer
 from mcts.mcts import MCTS
-from mcts.neural_evaluator import NeuralEvaluator
+from mcts.evaluators import NeuralEvaluator
 from model.policy_value_net import PolicyValueNet
 from train.replay_buffer import ReplayBuffer
 from train.self_play import SelfPlayRunner

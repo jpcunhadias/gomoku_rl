@@ -2,7 +2,7 @@ from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer, RandomPlayer
 from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
-from mcts.neural_evaluator import NeuralEvaluator
+from mcts.evaluators import NeuralEvaluator
 from cli.play.utils import play_game
 
 

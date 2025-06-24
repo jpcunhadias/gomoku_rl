@@ -37,6 +37,9 @@ class ReplayBuffer:
             torch.tensor(values, dtype=torch.long),  # Shape: [B]
         )
 
+    def get_all_targets(self) -> List[int]:
+        return [sample[2] for sample in self.buffer]
+
     @classmethod
     def load(cls, path: str) -> "ReplayBuffer":
         import pickle

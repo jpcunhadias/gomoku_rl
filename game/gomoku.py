@@ -20,6 +20,10 @@ class GomokuBoard:
         self.current_player = start_player
         self.last_move = None
 
+    def get_num_moves(self) -> int:
+        """Return the total number of moves played on the board."""
+        return np.count_nonzero(self.board)
+
     def get_legal_moves(self) -> List[Tuple[int, int]]:
         """Return coordinates of all empty positions."""
         legal_moves = [
@@ -145,8 +149,6 @@ class GomokuBoard:
                     row_str += " ."
             print(row_str)
 
-        print(f"\nCurrent player: {'X' if self.current_player == 1 else 'O'}")
-
     def move_to_index(self, row: int, col: int) -> int:
         """Convert ``(row, col)`` into a flat index."""
         return row * self.board_size + col
@@ -176,6 +178,29 @@ class GomokuBoard:
         elif self.check_draw():
             return 0.0
         raise RuntimeError("evaluate_terminal() called on non-terminal board.")
+
+    def iter_lines(self):
+        """Yield all board lines (rows, columns, diagonals) as 1D lists."""
+        b = self.board
+        size = self.board_size
+
+        # Rows and columns
+        for i in range(size):
+            yield b[i, :].tolist()  # row
+            yield b[:, i].tolist()  # column
+
+        # Diagonals (\)
+        for offset in range(-size + 1, size):
+            diag = b.diagonal(offset)
+            if len(diag) >= self.n_in_row:
+                yield diag.tolist()
+
+        # Anti-diagonals (/)
+        flipped = np.fliplr(b)
+        for offset in range(-size + 1, size):
+            anti_diag = flipped.diagonal(offset)
+            if len(anti_diag) >= self.n_in_row:
+                yield anti_diag.tolist()
 
 
 class GomokuGameManager:
