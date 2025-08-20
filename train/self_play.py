@@ -142,6 +142,7 @@ def create_players(
         "evaluator_fn": evaluator,
         "c_puct": config.c_puct,
         "n_simulations": n_simulations,
+        "use_rave": config.use_rave,
     }
 
     player1 = MCTSPlayer(MCTS(**mcts_kwargs), **player_kwargs)

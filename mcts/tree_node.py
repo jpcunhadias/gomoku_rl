@@ -1,16 +1,18 @@
-from typing import Optional, Dict, Tuple, List, Any
+from collections import defaultdict
+from typing import Optional, Dict, Tuple, List, Set, Any
 
 import numpy as np
 
 
 class TreeNode:
-    """Node used in the Monte-Carlo search tree."""
+    """Node used in the Monte-Carlo search tree with optional RAVE support."""
 
     def __init__(
         self,
         parent: Optional["TreeNode"] = None,
         prior: float = 1.0,
         action_taken: Any = None,
+        use_rave: bool = True,
     ) -> None:
         self.parent: Optional["TreeNode"] = parent
         self.children: Dict[Any, "TreeNode"] = {}
@@ -19,13 +21,16 @@ class TreeNode:
         self.Q: float = 0.0
         self.P: float = prior
         self.action_taken: Any = action_taken
+        self.use_rave: bool = use_rave
+
+        # RAVE statistics
+        self.n_rave: Dict[Any, int] = defaultdict(int)
+        self.w_rave: Dict[Any, float] = defaultdict(float)
 
     def is_leaf(self) -> bool:
-        """Return ``True`` if the node has no children."""
         return len(self.children) == 0
 
     def is_root(self) -> bool:
-        """Return ``True`` if the node is the root of the tree."""
         return self.parent is None
 
     def expand(
@@ -34,39 +39,61 @@ class TreeNode:
         legal_moves: List[Any],
         debug: bool = False,
     ) -> None:
-        """Expand the node using ``action_priors`` filtered by ``legal_moves``."""
         legal_moves_set = set(legal_moves)
-
         for action, prob in action_priors:
             if action in legal_moves_set and action not in self.children:
                 self.children[action] = TreeNode(
                     parent=self,
                     prior=prob,
                     action_taken=action,
+                    use_rave=self.use_rave,  # Propagate toggle
                 )
             elif debug and action not in legal_moves_set:
                 print(f"[DEBUG] Ignored invalid expansion action: {action}")
 
-    def select_child(self, c_puct: float) -> Tuple[Any, "TreeNode"]:
-        """Select child with highest PUCT score."""
-
+    def select_child(
+        self, c_puct: float, k_rave: float = 300.0
+    ) -> Tuple[Any, "TreeNode"]:
+        """Select child with highest (PUCT + RAVE) or standard PUCT score."""
         if self.is_leaf():
             raise ValueError("Cannot select child from a leaf node.")
 
-        def puct_score(child: "TreeNode") -> float:
+        def puct_score(child: "TreeNode", move: Any) -> float:
             u = c_puct * child.P * np.sqrt(self.n_visits + 1e-8) / (1 + child.n_visits)
-            return child.Q + u
+            Q = child.Q
 
-        return max(self.children.items(), key=lambda item: puct_score(item[1]))
+            if self.use_rave:
+                n_rave = self.n_rave[move]
+                w_rave = self.w_rave[move]
+                Q_rave = w_rave / n_rave if n_rave > 0 else 0.0
+                beta = n_rave / (n_rave + child.n_visits + k_rave + 1e-8)
+                Q_blend = beta * Q_rave + (1 - beta) * Q
+                return Q_blend + u
+            else:
+                return Q + u
+
+        return max(self.children.items(), key=lambda item: puct_score(item[1], item[0]))
 
     def update(self, value: float) -> None:
-        """Update statistics with value from leaf evaluation."""
         self.n_visits += 1
         self.W += value
         self.Q = self.W / self.n_visits
 
-    def backpropagate(self, value: float) -> None:
-        """Recursively update current and ancestor nodes. Alternate sign for players."""
+    def update_rave(self, move: Any, value: float) -> None:
+        self.n_rave[move] += 1
+        self.w_rave[move] += value
+
+    def backpropagate(
+        self, value: float, visited_moves: Optional[Set[Any]] = None
+    ) -> None:
+        """
+        Backpropagate value up the tree, updating parent nodes and RAVE statistics.
+        """
         if self.parent:
-            self.parent.backpropagate(-value)
+            self.parent.backpropagate(-value, visited_moves)
+
         self.update(value)
+
+        if visited_moves is not None and self.use_rave:
+            for move in visited_moves:
+                self.update_rave(move, value)

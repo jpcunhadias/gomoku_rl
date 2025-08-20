@@ -49,7 +49,6 @@ def main() -> None:
             f"No replay buffer found at {buffer_path}. Cannot start training without data."
         )
 
-    print(best_value_loss)
     # === Initialize trainer ===
     trainer = AlphaZeroTrainer(
         model=model,
