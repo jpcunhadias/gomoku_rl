@@ -20,4 +20,5 @@ def get_config() -> SimpleNamespace:
         temperature=1.0,
         add_dirichlet_noise=True,
         c_puct_pure=2.0,
+        use_rave=False,
     )

@@ -1,3 +1,5 @@
+import argparse
+import os
 from types import SimpleNamespace
 from typing import Optional
 
@@ -34,7 +36,12 @@ def evaluate_model_vs_pure_mcts(
 
         if torch.rand(1).item() < 0.5:
             player1 = MCTSPlayer(
-                MCTS(neural_evaluator, config.c_puct, config.eval_num_simulations),
+                MCTS(
+                    neural_evaluator,
+                    config.c_puct,
+                    config.eval_num_simulations,
+                    use_rave=True,
+                ),
                 temperature=config.temperature,
                 name="Model",
             )
@@ -43,6 +50,7 @@ def evaluate_model_vs_pure_mcts(
                     ThreatRolloutEvaluator(),
                     config.c_puct_pure,
                     config.eval_num_simulations,
+                    use_rave=True,
                 ),
                 temperature=1e-3,
                 name="MCTS_Pure",
@@ -54,12 +62,18 @@ def evaluate_model_vs_pure_mcts(
                     ThreatRolloutEvaluator(),
                     config.c_puct_pure,
                     config.eval_num_simulations,
+                    use_rave=True,
                 ),
                 temperature=1e-3,
                 name="MCTS_Pure",
             )
             player2 = MCTSPlayer(
-                MCTS(neural_evaluator, config.c_puct, config.eval_num_simulations),
+                MCTS(
+                    neural_evaluator,
+                    config.c_puct,
+                    config.eval_num_simulations,
+                    use_rave=True,
+                ),
                 temperature=config.temperature,
                 name="Model",
             )
@@ -94,3 +108,52 @@ def evaluate_model_vs_pure_mcts(
         writer.add_scalar("Eval/Model_WinRate_vs_PureMCTS", model_win_rate, global_step)
 
     return model_win_rate
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Evaluate model vs. Pure MCTS")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default="checkpoints/policy_value_net_best.pth",
+        help="Path to model checkpoint",
+    )
+    parser.add_argument(
+        "--num_games", type=int, default=20, help="Number of games to play"
+    )
+    parser.add_argument(
+        "--board_size", type=int, default=8, help="Board size (e.g., 8 or 15)"
+    )
+    parser.add_argument(
+        "--eval_sim", type=int, default=400, help="Number of MCTS simulations for eval"
+    )
+
+    args = parser.parse_args()
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    model = PolicyValueNet(board_size=args.board_size)
+    checkpoint = torch.load(args.checkpoint, map_location=device)
+    model.load_state_dict(checkpoint["model_state_dict"])
+
+    writer = SummaryWriter(log_dir=os.path.join("logs", "eval"))
+
+    config = SimpleNamespace(
+        c_puct=1.5,
+        c_puct_pure=1.0,
+        temperature=1e-3,
+        eval_num_simulations=args.eval_sim,
+    )
+
+    evaluate_model_vs_pure_mcts(
+        model,
+        device,
+        config,
+        num_games=args.num_games,
+        board_size=args.board_size,
+        writer=writer,
+        global_step=0,
+    )
+
+
+if __name__ == "__main__":
+    main()

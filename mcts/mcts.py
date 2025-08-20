@@ -7,43 +7,41 @@ from mcts.tree_node import TreeNode
 
 
 class MCTS:
-    """Simple Monte-Carlo Tree Search implementation."""
+    """Monte-Carlo Tree Search with optional RAVE support."""
 
     def __init__(
         self,
         evaluator_fn: Callable[[Any], Any],
         c_puct: float = 1.0,
         n_simulations: int = 800,
+        use_rave: bool = True,
     ) -> None:
-        """Create a new MCTS instance.
-
-        Args:
-            evaluator_fn: Callable that evaluates a board and returns
-                ``(priors, value)``.
-            c_puct: Exploration constant for PUCT formula.
-            n_simulations: Number of simulations per move.
         """
-
+        Args:
+            evaluator_fn: Function that evaluates a board and returns (priors, value).
+            c_puct: Exploration constant.
+            n_simulations: Simulations per move.
+            use_rave: Whether to use RAVE enhancement.
+        """
         self.evaluator_fn = evaluator_fn
         self.c_puct = c_puct
         self.n_simulations = n_simulations
-        self.root = TreeNode()
+        self.use_rave = use_rave
+        self.root = TreeNode(use_rave=use_rave)
 
     def update_with_move(self, move: Any) -> None:
         """Reuse the subtree rooted at ``move`` if it exists."""
-        if hasattr(self, "root") and move in self.root.children:
+        if move in self.root.children:
             self.root = self.root.children[move]
-            self.root.parent = None  # clear reference to previous root
+            self.root.parent = None
         else:
-            self.root = TreeNode()  # reset tree if move not in children
+            self.root = TreeNode(use_rave=self.use_rave)
 
     def run_simulation(self, root: TreeNode, board: Any) -> None:
-        """Run a single MCTS simulation starting from ``root``."""
-
         node = root
         state = board.clone()
+        visited_moves = set()
 
-        # Clean up root's children if board has changed
         if node == self.root:
             legal_moves_set = set(state.get_legal_moves())
             illegal_children = [
@@ -52,53 +50,45 @@ class MCTS:
             for action in illegal_children:
                 del node.children[action]
 
-        # Selection
         while not node.is_leaf():
-            # === Before selecting, clean illegal children ===
             legal_moves_set = set(state.get_legal_moves())
-            illegal_children = [
-                action for action in node.children if action not in legal_moves_set
-            ]
-            for action in illegal_children:
-                del node.children[action]
+            for action in list(node.children):
+                if action not in legal_moves_set:
+                    del node.children[action]
 
             if node.is_leaf():
-                # No children to select → break to expand
                 break
 
-            action, node = node.select_child(self.c_puct)
+            action, node = node.select_child(
+                c_puct=self.c_puct,
+                k_rave=300.0,
+            )
 
             if isinstance(action, int):
                 row, col = state.index_to_move(action)
             elif isinstance(action, tuple):
                 row, col = action
             else:
-                raise TypeError("Action must be either an int or a (row, col) tuple.")
+                raise TypeError("Action must be int or (row, col) tuple.")
 
             if not state.is_legal_move(row, col):
                 print(f"[DEBUG] Illegal move selected: {action} → ({row}, {col})")
-                print("[DEBUG] Current board:")
                 state.render()
-                print("[DEBUG] Legal moves:", state.get_legal_moves())
-                raise RuntimeError("MCTS selected an illegal move during simulation.")
+                raise RuntimeError("MCTS selected an illegal move.")
 
             state.apply_move(row, col)
+            visited_moves.add((row, col))
 
-        # Check for terminal state
         if state.is_terminal():
-            value = state.evaluate_terminal()  # +1 win, -1 loss, 0 draw
+            value = state.evaluate_terminal()
         else:
             priors, value = self.evaluator_fn(state)
-
             legal_moves = state.get_legal_moves()
-
             node.expand(priors, legal_moves)
 
-        node.backpropagate(value)
+        node.backpropagate(value, visited_moves)
 
     def get_action_probs(self, board: Any, temp: float = 1e-3) -> Dict[Any, float]:
-        """Return a probability distribution over legal actions."""
-
         for _ in range(self.n_simulations):
             self.run_simulation(self.root, board)
 
@@ -111,9 +101,7 @@ class MCTS:
     def _normalize_counts(
         self, counts: Dict[Any, int], temp: float
     ) -> Dict[Any, float]:
-        """Convert visit counts to a probability distribution."""
         if not counts:
-            # No legal moves available
             return {}
 
         if temp <= 1e-3:

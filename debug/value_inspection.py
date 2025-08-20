@@ -1,5 +1,4 @@
 import os
-import pickle
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,22 +10,6 @@ from train.replay_buffer import ReplayBuffer
 CHECKPOINT_PATH = "checkpoints/policy_value_net_best.pth"
 BUFFER_PATH = "checkpoints/replay_buffer.pkl"
 OUTPUT_DIR = "debug/debug_outputs"
-
-
-def load_model(checkpoint_path: str, device: str) -> PolicyValueNet:
-    model = PolicyValueNet.load_from_checkpoint(
-        path=checkpoint_path,
-        board_size=8,
-        device=device,
-    )
-    return model
-
-
-def load_buffer(path: str) -> ReplayBuffer:
-    with open(path, "rb") as f:
-        buffer = pickle.load(f)
-    assert hasattr(buffer, "sample"), "ReplayBuffer must have a sample method"
-    return buffer
 
 
 def plot_histograms(v: np.ndarray, z: np.ndarray) -> None:
@@ -85,8 +68,12 @@ def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # === Load model and buffer
-    model = load_model(CHECKPOINT_PATH, device)
-    buffer = load_buffer(BUFFER_PATH)
+    model = PolicyValueNet.load_from_checkpoint(
+        path=CHECKPOINT_PATH,
+        board_size=8,
+        device=device,
+    )
+    buffer = ReplayBuffer.load(BUFFER_PATH)
     print(f"Loaded model from checkpoint: {CHECKPOINT_PATH}")
     print(f"Loaded buffer with {len(buffer)} samples")
 

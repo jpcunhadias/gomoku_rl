@@ -32,10 +32,11 @@ train:
 	python cli/train/train_loop_main.py
 
 eval:
-	python cli/eval/eval.py --checkpoint checkpoints/policy_value_net_best.pth --num_games 20 --board_size 8 --eval_sim 400
+	python cli/eval/eval.py --checkpoint checkpoints/policy_value_net_best.pth --num_games 20 --board_size 8 --eval_sim 800
 
 debug:
-	python debug/debug_value_inspection.py
+	python debug/value_inspection.py && \
+	python debug/policy_inspection.py
 
 analyze_buffer:
 	python cli/self_play/analyze_buffer.py
