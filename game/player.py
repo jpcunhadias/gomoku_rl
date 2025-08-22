@@ -83,15 +83,24 @@ class MCTSPlayer:
         """Reset internal move counter before a new game."""
         self.move_number = 0
 
-    def get_action(self, board: GomokuBoard) -> Any:
-        """Return a move selected by MCTS."""
+    def get_action(self, board: GomokuBoard, return_probs: bool = False) -> Any:
+        """Return a move selected by MCTS.
+
+        If ``return_probs`` is ``True``, also return the visit-count based
+        action probabilities produced by the search.
+        """
         action_probs = self.mcts.get_action_probs(board, temp=self.temperature)
 
         if not action_probs:
             # Fallback: pick random move if MCTS failed
             print("[WARNING] MCTS returned no moves. Picking random legal move.")
             legal_moves = board.get_legal_moves()
-            return random.choice(legal_moves)
+            selected_action = random.choice(legal_moves)
+            if return_probs:
+                uniform = 1.0 / len(legal_moves) if legal_moves else 0.0
+                probs_dict: Dict[Any, float] = {m: uniform for m in legal_moves}
+                return selected_action, probs_dict
+            return selected_action
 
         # === Add Dirichlet noise only on first move if enabled ===
         if self.add_dirichlet_noise and self.move_number == 0:
@@ -106,6 +115,9 @@ class MCTSPlayer:
             selected_action = random.choices(actions, weights=probs, k=1)[0]
 
         self.move_number += 1
+
+        if return_probs:
+            return selected_action, action_probs
         return selected_action
 
     def _add_dirichlet_noise(self, action_probs: Dict[Any, float]) -> Dict[Any, float]:
