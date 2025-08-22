@@ -1,3 +1,4 @@
+import torch
 import pytest
 import numpy as np
 from game.gomoku import GomokuBoard
