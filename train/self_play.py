@@ -96,13 +96,13 @@ class SelfPlayRunner:
         elif winner is None:
             winner = 0
 
-        # Encode results as integer classes: 0=loss, 1=draw, 2=win
+        # Encode results as scalar: -1=loss, 0=draw, 1=win
         final_data = []
         for state_tensor, pi_tensor, player in game_data:
             if winner == 0:
-                z = 1
+                z = 0.0
             else:
-                z = 2 if winner == player else 0
+                z = 1.0 if winner == player else -1.0
             final_data.append((state_tensor, pi_tensor, z))
 
         if self.augment_fn:
