@@ -34,6 +34,8 @@ def test_self_play_game_populates_buffer():
     states, policies, values = buffer.sample(1)
     assert states[0].shape == (3, 8, 8)
     assert policies[0].shape == (8, 8)
+    # Policy should represent a probability distribution over the board
+    assert abs(policies[0].sum().item() - 1.0) < 1e-5
     assert values[0].item() in [0, 1, 2]
 
 

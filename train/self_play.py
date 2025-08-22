@@ -67,12 +67,22 @@ class SelfPlayRunner:
                 temp = self.temperature_schedule(move_number)
                 current_player.set_temperature(temp)
 
-            action = current_player.get_action(board)
+            action, visit_probs = current_player.get_action(board, return_probs=True)
 
-            pi = self._create_pi_from_action(board, action)
+            board_size = board.board_size
+            pi_arr = np.zeros((board_size, board_size), dtype=np.float32)
+            for move, prob in visit_probs.items():
+                if isinstance(move, tuple):
+                    r, c = move
+                else:
+                    r, c = board.index_to_move(move)
+                pi_arr[r, c] = prob
+            pi = torch.from_numpy(pi_arr)
 
             game_data.append((state_tensor, pi, 1 if move_number % 2 == 0 else -1))
 
+            if not isinstance(action, tuple):
+                action = board.index_to_move(action)
             board.apply_move(*action)
 
             if self.verbose:
@@ -99,18 +109,6 @@ class SelfPlayRunner:
             final_data = self.augment_fn(final_data)
 
         self.buffer.add(final_data)
-
-    def _create_pi_from_action(self, board: GomokuBoard, action: Any) -> torch.Tensor:
-        """Create a ``board_size × board_size`` policy tensor with ``1`` at the chosen move."""
-        board_size = board.board_size
-        pi = np.zeros((board_size, board_size), dtype=np.float32)
-        if isinstance(action, tuple):
-            pi[action[0], action[1]] = 1.0
-        else:
-            i, j = board.index_to_move(action)
-            pi[i, j] = 1.0
-        return torch.from_numpy(pi)
-
 
 def initialize_model(
     device: str, checkpoint_path: Optional[str] = None
