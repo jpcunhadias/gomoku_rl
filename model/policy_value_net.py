@@ -30,23 +30,6 @@ class ResidualBlock(nn.Module):
         return F.relu(out)
 
 
-class ValueClassifierHead(nn.Module):
-    """Fully-connected head used by the value network."""
-
-    def __init__(self, input_size: int, hidden_size: int = 128) -> None:
-        """Initialize the classifier with ``input_size`` and ``hidden_size``."""
-
-        super().__init__()
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        # Output logits for three classes: loss, draw, win
-        self.fc2 = nn.Linear(hidden_size, 3)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Return value prediction for flattened input ``x``."""
-
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
-        return self.fc2(x)
 
 
 class PolicyValueNet(nn.Module):
@@ -72,7 +55,7 @@ class PolicyValueNet(nn.Module):
 
         # Value Head
         self.value_conv = nn.Conv2d(64, 1, kernel_size=1)
-        self.value_head = ValueClassifierHead(input_size=board_size * board_size)
+        self.value_fc = nn.Linear(board_size * board_size, 1)
 
         # Initialize weights
         self._init_weights()
@@ -93,7 +76,8 @@ class PolicyValueNet(nn.Module):
 
         # Value Head
         value = self.value_conv(x)
-        value = self.value_head(value)
+        value = value.view(value.size(0), -1)
+        value = torch.tanh(self.value_fc(value))
 
         return policy, value
 
@@ -137,9 +121,8 @@ class PolicyValueNet(nn.Module):
         nn.init.xavier_uniform_(self.policy_fc.weight)
         nn.init.zeros_(self.policy_fc.bias)
 
-        # Access the submodule inside value_head
-        nn.init.xavier_uniform_(self.value_head.fc2.weight)
-        nn.init.zeros_(self.value_head.fc2.bias)
+        nn.init.xavier_uniform_(self.value_fc.weight)
+        nn.init.zeros_(self.value_fc.bias)
 
 
 if __name__ == "__main__":

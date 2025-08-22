@@ -1,5 +1,4 @@
 import os
-from collections import Counter
 from typing import Any, Tuple, Optional
 
 import torch
@@ -10,24 +9,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 from model.policy_value_net import PolicyValueNet
 from train.replay_buffer import ReplayBuffer
-
-
-def compute_class_weights(buffer: ReplayBuffer, device: str) -> torch.Tensor:
-    # Sample target values from full buffer (or all if it's small)
-    all_targets = (
-        buffer.get_all_targets()
-    )  # assumes buffer stores (state, policy, value)
-    counts = Counter(all_targets)
-
-    # Map: 0 = loss, 1 = draw, 2 = win
-    total = sum(counts.values())
-    weights = {cls: total / counts[cls] for cls in [0, 1, 2]}  # inverse frequency
-    norm_factor = sum(weights.values()) / 3
-    weights_tensor = torch.tensor(
-        [weights[i] / norm_factor for i in [0, 1, 2]], dtype=torch.float32
-    ).to(device)
-
-    return weights_tensor
 
 
 class AlphaZeroTrainer:
@@ -62,9 +43,7 @@ class AlphaZeroTrainer:
         self.save_path = config.save_path
 
         self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
-        # Three-class classification: loss, draw, win
-        class_weights = compute_class_weights(replay_buffer, device)
-        self.value_loss_fn = nn.CrossEntropyLoss(weight=class_weights)
+        self.value_loss_fn = nn.MSELoss()
         self.best_value_loss = best_value_loss
         self.best_epoch = 0
 
@@ -96,12 +75,12 @@ class AlphaZeroTrainer:
         Args:
             policy_logits (Tensor): Raw logits from policy head.
             target_policy (Tensor): Target probabilities (π from MCTS).
-            value_pred (Tensor): Logits from the 3-class value head.
-            target_value (Tensor): Game result encoded as 0=loss, 1=draw, 2=win.
+            value_pred (Tensor): Scalar value prediction in [-1, 1].
+            target_value (Tensor): Game result encoded as -1 (loss), 0 (draw), 1 (win).
         """
         log_probs = F.log_softmax(policy_logits, dim=1)
         policy_loss = self.policy_loss_fn(log_probs, target_policy)
-        value_loss = self.value_loss_fn(value_pred, target_value.view(-1))
+        value_loss = self.value_loss_fn(value_pred.view(-1), target_value.view(-1))
 
         total_loss = policy_loss * 0.1 + value_loss * 1.0
 
@@ -147,17 +126,13 @@ class AlphaZeroTrainer:
 
                 if debug:
                     with torch.no_grad():
-                        probs = torch.softmax(value_pred, dim=1)
-                        expected = probs[:, 2] - probs[:, 0]
-                        value_mean = expected.mean().item()
-                        value_std = expected.std().item()
+                        value_mean = value_pred.mean().item()
+                        value_std = value_pred.std().item()
                         value_preds_this_epoch.append((value_mean, value_std))
 
                     with open(value_debug_path, "a") as f:
                         f.write(f"\nEpoch {epoch}, Step {step}:\n")
-                        probs = torch.softmax(value_pred.detach().cpu(), dim=1)
-                        expected = probs[:, 2] - probs[:, 0]
-                        preds = expected.tolist()
+                        preds = value_pred.detach().cpu().view(-1).tolist()
                         targets = target_values.detach().cpu().tolist()
                         for pred, target in zip(preds[:8], targets[:8]):
                             f.write(f"  z: {target}, v: {float(pred):.4f}\n")
