@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import pytest
 from model.policy_value_net import PolicyValueNet, ResidualBlock
 
