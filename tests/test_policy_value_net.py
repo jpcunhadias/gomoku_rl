@@ -16,11 +16,10 @@ def test_policy_value_net_shape_and_value_range():
         1,
         64,
     ), f"Expected policy shape [1, 64], got {policy.shape}"
-    assert value.shape == (1, 3), f"Expected value shape [1, 3], got {value.shape}"
+    assert value.shape == (1, 1), f"Expected value shape [1, 1], got {value.shape}"
 
     # Check value range for [-1, 1]
-    probs = torch.softmax(value, dim=1)
-    expected_value = probs[0, 2] - probs[0, 0]
+    expected_value = value.item()
     assert -1.0 <= expected_value <= 1.0
 
     print("Shape and value range test passed!")
@@ -52,10 +51,9 @@ def test_fixed_input():
         1,
         64,
     ), f"Expected policy shape [1, 64], got {policy.shape}"
-    assert value.shape == (1, 3), f"Expected value shape [1, 3], got {value.shape}"
+    assert value.shape == (1, 1), f"Expected value shape [1, 1], got {value.shape}"
 
-    probs = torch.softmax(value, dim=1)
-    expected_value = probs[0, 2] - probs[0, 0]
+    expected_value = value.item()
     assert -1.0 <= expected_value <= 1.0
 
     print("Fixed input test passed!")
@@ -70,8 +68,7 @@ def test_random_boards():
         random_input = torch.rand(1, 3, 8, 8)  # Random board
         policy, value = model(random_input)
 
-        probs = torch.softmax(value, dim=1)
-        expected_value = probs[0, 2] - probs[0, 0]
+        expected_value = value.item()
         assert -1.0 <= expected_value <= 1.0
 
     print("Random board test passed!")

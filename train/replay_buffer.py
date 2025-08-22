@@ -9,9 +9,9 @@ class ReplayBuffer:
 
     def __init__(self, max_size: int) -> None:
         self.max_size = max_size
-        self.buffer: List[Tuple[torch.Tensor, torch.Tensor, int]] = []
+        self.buffer: List[Tuple[torch.Tensor, torch.Tensor, float]] = []
 
-    def add(self, game_data: List[Tuple[torch.Tensor, torch.Tensor, int]]) -> None:
+    def add(self, game_data: List[Tuple[torch.Tensor, torch.Tensor, float]]) -> None:
         """
         Accepts a list of (state_tensor, pi_tensor, z_value) tuples from one self-play game.
         """
@@ -34,10 +34,10 @@ class ReplayBuffer:
         return (
             torch.stack(states),  # Shape: [B, 3, 8, 8]
             torch.stack(policies),  # Shape: [B, 8, 8]
-            torch.tensor(values, dtype=torch.long),  # Shape: [B]
+            torch.tensor(values, dtype=torch.float32),  # Shape: [B]
         )
 
-    def get_all_targets(self) -> List[int]:
+    def get_all_targets(self) -> List[float]:
         return [sample[2] for sample in self.buffer]
 
     @classmethod

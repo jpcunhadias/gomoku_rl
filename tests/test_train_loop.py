@@ -6,11 +6,11 @@ from train.train_loop import AlphaZeroTrainer
 
 
 def test_train_loop_runs_without_error(tmp_path):
-    # Create a small fake buffer with all class labels: 0 (loss), 1 (draw), 2 (win)
+    # Create a small fake buffer with targets: -1 (loss), 0 (draw), 1 (win)
     buffer = ReplayBuffer(max_size=10)
     dummy_state = torch.zeros(3, 8, 8)
     dummy_pi = torch.ones(8, 8) / 64.0
-    outcomes = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0]  # covers all classes
+    outcomes = [-1.0, 0.0, 1.0, -1.0, 0.0, 1.0, -1.0, 0.0, 1.0, -1.0]
     for z in outcomes:
         buffer.add([(dummy_state.clone(), dummy_pi.clone(), z)])
 

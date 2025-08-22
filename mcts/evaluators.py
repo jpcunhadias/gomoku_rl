@@ -25,16 +25,13 @@ class NeuralEvaluator:
         )
 
         with torch.no_grad():
-            policy_logits, value_logits = self.model(tensor_input)
+            policy_logits, value = self.model(tensor_input)
             policy = torch.softmax(policy_logits.view(-1), dim=0).cpu().numpy()
-
-            # Convert value logits for [loss, draw, win] into expected value
-            probs = torch.softmax(value_logits.view(-1), dim=0)
-            value = probs[2] - probs[0]
+            value = value.view(-1).item()
 
         legal_moves = board.get_legal_move_indices()
         action_priors = [(i, policy[i]) for i in legal_moves]
-        return action_priors, value.item()
+        return action_priors, value
 
     def __call__(
         self, board: Any
@@ -49,7 +46,7 @@ class NeuralEvaluator:
         board_size = board.board_size
 
         with torch.no_grad():
-            policy_logits, value_logits = self.model(tensor_input)
+            policy_logits, value = self.model(tensor_input)
 
         policy = (
             torch.softmax(policy_logits.view(-1), dim=0)
@@ -58,14 +55,12 @@ class NeuralEvaluator:
             .numpy()
         )
 
-        # Convert value logits into expected scalar [-1, 1]
-        probs = torch.softmax(value_logits.view(-1), dim=0)
-        value = probs[2] - probs[0]
+        value = value.view(-1).item()
 
         legal_moves = board.get_legal_moves()
         action_priors = [(move, policy[move[0], move[1]]) for move in legal_moves]
 
-        return action_priors, value.item()
+        return action_priors, value
 
 
 class ThreatRolloutEvaluator:
