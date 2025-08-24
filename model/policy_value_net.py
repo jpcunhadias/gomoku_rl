@@ -30,8 +30,6 @@ class ResidualBlock(nn.Module):
         return F.relu(out)
 
 
-
-
 class PolicyValueNet(nn.Module):
     """Dual-headed policy and value network for Gomoku."""
 

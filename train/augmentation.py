@@ -87,7 +87,7 @@ def augment_board_state(board_tensor: torch.Tensor) -> torch.Tensor:
 
 
 def augment_data(
-    data: List[Tuple[torch.Tensor, torch.Tensor, float]]
+    data: List[Tuple[torch.Tensor, torch.Tensor, float]],
 ) -> List[Tuple[torch.Tensor, torch.Tensor, float]]:
     """Apply a random transform to both state and policy for each sample."""
 

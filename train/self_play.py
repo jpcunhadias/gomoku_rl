@@ -110,6 +110,7 @@ class SelfPlayRunner:
 
         self.buffer.add(final_data)
 
+
 def initialize_model(
     device: str, checkpoint_path: Optional[str] = None
 ) -> PolicyValueNet:

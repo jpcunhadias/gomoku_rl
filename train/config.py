@@ -10,7 +10,7 @@ def get_config() -> SimpleNamespace:
         epochs=1000,
         steps_per_epoch=100,
         reload_buffer_every=250,
-        replay_buffer_size=10000,
+        replay_buffer_size=30000,
         save_path="checkpoints/policy_value_net.pth",
         eval_every=200,
         target_win_rate=0.9,

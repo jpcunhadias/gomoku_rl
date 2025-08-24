@@ -35,8 +35,12 @@ eval:
 	python cli/eval/eval.py --checkpoint checkpoints/policy_value_net_best.pth --num_games 20 --board_size 8 --eval_sim 800
 
 debug:
-	python debug/value_inspection.py && \
-	python debug/policy_inspection.py
+	python debug/value_head_check.py \
+  --checkpoint checkpoints/policy_value_net_best.pth \
+  --buffer checkpoints/replay_buffer.pkl \
+  --batch 256 \
+  --output debug/debug_outputs
+
 
 analyze_buffer:
 	python cli/self_play/analyze_buffer.py
