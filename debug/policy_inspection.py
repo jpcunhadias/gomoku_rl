@@ -1,7 +1,8 @@
 import os
-import torch
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from sklearn.decomposition import PCA
 from torch.nn import functional as F
 
@@ -99,8 +100,9 @@ def main() -> None:
         probs = F.softmax(policy_logits, dim=1)
         entropy = -(probs * probs.log()).sum(dim=1).cpu().numpy()
 
-        assert probs.shape == target_policies.shape, \
+        assert probs.shape == target_policies.shape, (
             f"Shape mismatch: probs={probs.shape}, targets={target_policies.shape}"
+        )
 
         kl_div = compute_kl_divergence(probs, target_policies).cpu().numpy()
 
