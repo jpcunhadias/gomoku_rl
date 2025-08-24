@@ -15,14 +15,29 @@ def test_train_loop_runs_without_error(tmp_path):
         buffer.add([(dummy_state.clone(), dummy_pi.clone(), z)])
 
     model = PolicyValueNet(board_size=8)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
     config = SimpleNamespace(
         batch_size=2,
         learning_rate=1e-3,
         epochs=2,
         steps_per_epoch=2,
         save_path=str(tmp_path / "test_model.pth"),
+    )
+
+    value_params = list(model.value_conv.parameters()) + list(
+        model.value_fc.parameters()
+    )
+    value_param_ids = {id(p) for p in value_params}
+    policy_params = [p for p in model.parameters() if id(p) not in value_param_ids]
+
+    optimizer = torch.optim.Adam(
+        [
+            {"params": policy_params, "lr": config.learning_rate},
+            {
+                "params": value_params,
+                "lr": config.learning_rate * 0.3,
+                "weight_decay": 2e-4,
+            },
+        ]
     )
 
     trainer = AlphaZeroTrainer(
