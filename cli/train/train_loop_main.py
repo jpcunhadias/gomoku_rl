@@ -25,8 +25,23 @@ def main() -> None:
     # === Initialize model ===
     model = PolicyValueNet(board_size=8)
     model.to(device)
+    # Collect value-head parameters
+    value_params = list(model.value_conv.parameters()) + list(
+        model.value_fc.parameters()
+    )
+    value_param_ids = {id(p) for p in value_params}
+    policy_params = [p for p in model.parameters() if id(p) not in value_param_ids]
 
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(
+        [
+            {"params": policy_params, "lr": config.learning_rate},
+            {
+                "params": value_params,
+                "lr": config.learning_rate * 0.3,
+                "weight_decay": 2e-4,
+            },
+        ]
+    )
     best_value_loss = float("inf")
     # === Load checkpoint if it exists ===
     if os.path.exists(checkpoint_path):
