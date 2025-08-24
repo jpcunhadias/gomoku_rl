@@ -28,7 +28,24 @@ model = PolicyValueNet(board_size=8).to(device)
 
 # === Training Setup ===
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+base_lr = 1e-3
+value_params = list(model.value_conv.parameters()) + list(
+    model.value_fc.parameters()
+)
+value_param_ids = {id(p) for p in value_params}
+policy_params = [p for p in model.parameters() if id(p) not in value_param_ids]
+
+optimizer = optim.Adam(
+    [
+        {"params": policy_params, "lr": base_lr},
+        {
+            "params": value_params,
+            "lr": base_lr * 0.3,
+            "weight_decay": 2e-4,
+        },
+    ]
+)
 
 loss_history = []
 accuracy_history = []
