@@ -1,5 +1,5 @@
 import os
-from typing import Any, Tuple, Optional
+from typing import Any, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -78,13 +78,25 @@ class AlphaZeroTrainer:
             value_pred (Tensor): Scalar value prediction in [-1, 1].
             target_value (Tensor): Game result encoded as -1 (loss), 0 (draw), 1 (win).
         """
+        target_policy = target_policy.to(torch.float32)
+        target_value = target_value.view(-1).to(torch.float32)
+
         log_probs = F.log_softmax(policy_logits, dim=1)
         policy_loss = self.policy_loss_fn(log_probs, target_policy)
-        value_loss = self.value_loss_fn(value_pred.view(-1), target_value.view(-1))
+        value_loss = self.value_loss_fn(value_pred.view(-1), target_value)
 
-        total_loss = policy_loss * 3.0 + value_loss * 1.0
+        total_loss = policy_loss * 1.0 + value_loss * 0.5
 
         return total_loss, policy_loss.item(), value_loss.item()
+
+    def _write_debug_log(self, path: Optional[str], content: str) -> None:
+        """Helper method to write debug logs safely."""
+        if path:
+            try:
+                with open(path, "a") as f:
+                    f.write(content)
+            except Exception as e:
+                print(f"[Debug Log Error] Could not write to {path}: {e}")
 
     def train(self, debug: bool = False) -> Tuple[Optional[int], float]:
         """
@@ -92,11 +104,18 @@ class AlphaZeroTrainer:
         """
         self.model.train()
 
-        if debug:
-            loss_log_path = os.path.join("checkpoints", "train_loss_summary.log")
-            stats_log_path = os.path.join("checkpoints", "value_pred_stats.log")
-            grad_log_path = os.path.join("checkpoints", "gradient_debug.log")
-            value_debug_path = os.path.join("checkpoints", "value_pred_debug.log")
+        loss_log_path = (
+            os.path.join("checkpoints", "train_loss_summary.log") if debug else None
+        )
+        stats_log_path = (
+            os.path.join("checkpoints", "value_pred_stats.log") if debug else None
+        )
+        grad_log_path = (
+            os.path.join("checkpoints", "gradient_debug.log") if debug else None
+        )
+        value_debug_path = (
+            os.path.join("checkpoints", "value_pred_debug.log") if debug else None
+        )
 
         for epoch in range(1, self.epochs + 1):
             epoch_policy_loss = 0
@@ -116,7 +135,12 @@ class AlphaZeroTrainer:
 
                 states = states.to(self.device)
                 target_policies = target_policies.to(self.device)
-                target_values = target_values.to(self.device)
+                target_values = target_values.to(torch.float32).to(self.device)
+
+                # If legacy {0,1,2} labels sneak in, remap to {-1,0,1}
+                uniq = torch.unique(target_values).tolist()
+                if all(u in (0.0, 1.0, 2.0) for u in uniq):
+                    target_values = target_values - 1.0
 
                 action_size = self.model.policy_fc.out_features
                 target_policies = target_policies.view(-1, action_size)
@@ -130,12 +154,17 @@ class AlphaZeroTrainer:
                         value_std = value_pred.std().item()
                         value_preds_this_epoch.append((value_mean, value_std))
 
-                    with open(value_debug_path, "a") as f:
-                        f.write(f"\nEpoch {epoch}, Step {step}:\n")
-                        preds = value_pred.detach().cpu().view(-1).tolist()
-                        targets = target_values.detach().cpu().tolist()
-                        for pred, target in zip(preds[:8], targets[:8]):
-                            f.write(f"  z: {target}, v: {float(pred):.4f}\n")
+                    self._write_debug_log(
+                        value_debug_path,
+                        f"\nEpoch {epoch}, Step {step}:\n"
+                        + "".join(
+                            f"  z: {target}, v: {float(pred):.4f}\n"
+                            for pred, target in zip(
+                                value_pred.detach().cpu().view(-1).tolist()[:8],
+                                target_values.detach().cpu().tolist()[:8],
+                            )
+                        ),
+                    )
 
                 loss, p_loss, v_loss = self.compute_loss(
                     logits, target_policies, value_pred, target_values
@@ -144,15 +173,15 @@ class AlphaZeroTrainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
                 if debug:
-                    with open(grad_log_path, "a") as f:
-                        f.write(f"\nEpoch {epoch}, Step {step}:\n")
-                        for name, param in self.model.named_parameters():
-                            if param.grad is not None:
-                                norm = param.grad.norm().item()
-                                if "value" in name:
-                                    f.write(f"[Value]  {name}: {norm:.6f}\n")
-                                elif "policy" in name:
-                                    f.write(f"[Policy] {name}: {norm:.6f}\n")
+                    self._write_debug_log(
+                        grad_log_path,
+                        f"\nEpoch {epoch}, Step {step}:\n"
+                        + "".join(
+                            f"[{('Value' if 'value' in name else 'Policy')}] {name}: {param.grad.norm().item():.6f}\n"
+                            for name, param in self.model.named_parameters()
+                            if param.grad is not None
+                        ),
+                    )
 
                 self.optimizer.step()
                 epoch_policy_loss += p_loss
@@ -162,10 +191,10 @@ class AlphaZeroTrainer:
             avg_v_loss = epoch_value_loss / self.steps_per_epoch
 
             if debug:
-                with open(loss_log_path, "a") as f:
-                    f.write(
-                        f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}\n"
-                    )
+                self._write_debug_log(
+                    loss_log_path,
+                    f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}\n",
+                )
 
                 mean_of_means = sum(x[0] for x in value_preds_this_epoch) / len(
                     value_preds_this_epoch
@@ -173,10 +202,10 @@ class AlphaZeroTrainer:
                 mean_of_stds = sum(x[1] for x in value_preds_this_epoch) / len(
                     value_preds_this_epoch
                 )
-                with open(stats_log_path, "a") as f:
-                    f.write(
-                        f"Epoch {epoch}: value_pred mean = {mean_of_means:.4f}, std = {mean_of_stds:.4f}\n"
-                    )
+                self._write_debug_log(
+                    stats_log_path,
+                    f"Epoch {epoch}: value_pred mean = {mean_of_means:.4f}, std = {mean_of_stds:.4f}\n",
+                )
 
             print(
                 f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}"
