@@ -13,6 +13,7 @@ def play_mcts_net_vs_random() -> None:
 
     # Create policy-value network and neural evaluator
     model = PolicyValueNet(board_size=8, num_blocks=5)
+    model._init_weights()
     evaluator = NeuralEvaluator(model)
     # Create MCTS using the neural evaluator
     mcts = MCTS(evaluator_fn=evaluator.evaluate, c_puct=1.5, n_simulations=100)

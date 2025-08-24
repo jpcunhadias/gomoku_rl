@@ -9,6 +9,7 @@ from train.self_play import SelfPlayRunner
 
 def test_self_play_game_populates_buffer():
     model = PolicyValueNet(board_size=8)
+    model._init_weights()
     evaluator = NeuralEvaluator(model)
     buffer = ReplayBuffer(max_size=100)
 

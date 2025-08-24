@@ -15,6 +15,7 @@ def test_train_loop_runs_without_error(tmp_path):
         buffer.add([(dummy_state.clone(), dummy_pi.clone(), z)])
 
     model = PolicyValueNet(board_size=8)
+    model._init_weights()
     config = SimpleNamespace(
         batch_size=2,
         learning_rate=1e-3,

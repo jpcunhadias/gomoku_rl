@@ -32,6 +32,7 @@ if resume_training and os.path.exists(checkpoint_path):
 else:
     print("Initializing new model from scratch.")
     model = PolicyValueNet(board_size=8)
+    model._init_weights()
 
 # === Start training ===
 print("Starting training...")
