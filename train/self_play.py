@@ -115,6 +115,7 @@ def initialize_model(
     device: str, checkpoint_path: Optional[str] = None
 ) -> PolicyValueNet:
     model = PolicyValueNet(board_size=8).to(device)
+    model._init_weights()
     if checkpoint_path and os.path.exists(checkpoint_path):
         print(f"Loading model from checkpoint: {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=device)
