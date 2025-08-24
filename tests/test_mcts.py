@@ -12,6 +12,7 @@ def test_mcts_runs_and_returns_probs():
     board.apply_move(7, 7)
 
     model = PolicyValueNet(board_size=8, num_blocks=5)
+    model._init_weights()
     evaluator = NeuralEvaluator(model)
     mcts = MCTS(evaluator_fn=evaluator.evaluate, c_puct=1.0, n_simulations=10)
 

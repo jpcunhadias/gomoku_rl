@@ -108,6 +108,8 @@ class PolicyValueNet(nn.Module):
         device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         checkpoint = torch.load(path, map_location=device)
         model = cls(board_size=board_size, num_blocks=num_blocks)
+        # Explicitly ensure custom initializers run before loading weights
+        model._init_weights()
         model.load_state_dict(checkpoint["model_state_dict"])
         model.to(device)
         model.eval()  # Optional: set to eval mode by default
@@ -119,7 +121,7 @@ class PolicyValueNet(nn.Module):
         nn.init.xavier_uniform_(self.policy_fc.weight)
         nn.init.zeros_(self.policy_fc.bias)
 
-        nn.init.xavier_uniform_(self.value_fc.weight)
+        nn.init.xavier_uniform_(self.value_fc.weight, gain=0.1)
         nn.init.zeros_(self.value_fc.bias)
 
 

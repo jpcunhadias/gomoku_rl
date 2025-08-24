@@ -24,6 +24,7 @@ def main() -> None:
 
     # === Initialize model ===
     model = PolicyValueNet(board_size=8)
+    model._init_weights()
     model.to(device)
     # Collect value-head parameters
     value_params = list(model.value_conv.parameters()) + list(
