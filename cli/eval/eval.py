@@ -132,6 +132,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model = PolicyValueNet(board_size=args.board_size)
+    model._init_weights()
     checkpoint = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(checkpoint["model_state_dict"])
 

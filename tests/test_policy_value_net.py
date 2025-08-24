@@ -6,6 +6,7 @@ from model.policy_value_net import PolicyValueNet, ResidualBlock
 # 1. Test the output shapes and value range
 def test_policy_value_net_shape_and_value_range():
     model = PolicyValueNet(board_size=8, num_blocks=5)
+    model._init_weights()
 
     # Test forward pass with random input (1, 3, 8, 8)
     dummy_input = torch.rand(1, 3, 8, 8)  # Batch size of 1
@@ -37,6 +38,7 @@ def test_residual_block():
 # 3. Test Forward pass with a known fixed pattern
 def test_fixed_input():
     model = PolicyValueNet(board_size=8, num_blocks=5)
+    model._init_weights()
 
     # Create a fixed board: Player 1's pieces (1) and Player 2's pieces (2) in known locations
     fixed_board = torch.zeros(1, 3, 8, 8)
@@ -62,6 +64,7 @@ def test_fixed_input():
 # 4. Test Model on multiple random boards
 def test_random_boards():
     model = PolicyValueNet(board_size=8, num_blocks=5)
+    model._init_weights()
 
     # Run the model on 10 random inputs and check output range for value
     for _ in range(10):
