@@ -141,6 +141,7 @@ class AlphaZeroTrainer:
                     logits, target_policies, value_pred, target_values
                 )
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
                 if debug:
                     with open(grad_log_path, "a") as f:
