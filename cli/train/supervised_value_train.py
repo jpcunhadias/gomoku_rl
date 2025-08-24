@@ -26,9 +26,12 @@ data_loader = DataLoader(dataset, batch_size=128, shuffle=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = PolicyValueNet(board_size=8).to(device)
 model._init_weights()
+# Reinitialize value head with small gain
+nn.init.xavier_uniform_(model.value_fc.weight, gain=0.1)
+nn.init.zeros_(model.value_fc.bias)
 
 # === Training Setup ===
-criterion = nn.CrossEntropyLoss()
+criterion = nn.SmoothL1Loss(beta=1.0)
 
 base_lr = 1e-3
 value_params = list(model.value_conv.parameters()) + list(
@@ -49,13 +52,13 @@ optimizer = optim.Adam(
 )
 
 loss_history = []
-accuracy_history = []
+mae_history = []
 
 # === Training Loop ===
 for epoch in range(1, 11):
     model.train()
     total_loss = 0
-    correct = 0
+    total_mae = 0
     total = 0
 
     for batch_x, batch_y in data_loader:
@@ -63,7 +66,7 @@ for epoch in range(1, 11):
 
         _, value_pred = model(batch_x)
 
-        loss = criterion(value_pred, batch_y)
+        loss = criterion(value_pred.view(-1), batch_y)
 
         optimizer.zero_grad()
         loss.backward()
@@ -71,17 +74,15 @@ for epoch in range(1, 11):
         optimizer.step()
 
         total_loss += loss.item() * batch_x.size(0)
-
-        pred_class = value_pred.argmax(dim=1)
-        correct += (pred_class == batch_y).sum().item()
+        total_mae += torch.abs(value_pred.view(-1) - batch_y).sum().item()
         total += batch_y.size(0)
 
     avg_loss = total_loss / total
-    accuracy = correct / total
+    avg_mae = total_mae / total
 
     loss_history.append(avg_loss)
-    accuracy_history.append(accuracy)
-    print(f"Epoch {epoch}: Loss = {avg_loss:.4f}, Accuracy = {accuracy:.2%}")
+    mae_history.append(avg_mae)
+    print(f"Epoch {epoch}: Loss = {avg_loss:.4f}, MAE = {avg_mae:.4f}")
 
 # === Plot ===
 plt.figure(figsize=(10, 4))
@@ -93,10 +94,10 @@ plt.title("Training Loss")
 plt.grid(True)
 
 plt.subplot(1, 2, 2)
-plt.plot(accuracy_history, label="Accuracy")
+plt.plot(mae_history, label="MAE")
 plt.xlabel("Epoch")
-plt.ylabel("Accuracy")
-plt.title("Training Accuracy")
+plt.ylabel("MAE")
+plt.title("Mean Absolute Error")
 plt.grid(True)
 
 plt.tight_layout()
