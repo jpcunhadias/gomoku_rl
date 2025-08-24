@@ -43,7 +43,7 @@ class AlphaZeroTrainer:
         self.save_path = config.save_path
 
         self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
-        self.value_loss_fn = nn.MSELoss()
+        self.value_loss_fn = nn.SmoothL1Loss(beta=1.0)
         self.best_value_loss = best_value_loss
         self.best_epoch = 0
 
@@ -82,7 +82,7 @@ class AlphaZeroTrainer:
         policy_loss = self.policy_loss_fn(log_probs, target_policy)
         value_loss = self.value_loss_fn(value_pred.view(-1), target_value.view(-1))
 
-        total_loss = policy_loss * 0.1 + value_loss * 1.0
+        total_loss = policy_loss * 3.0 + value_loss * 1.0
 
         return total_loss, policy_loss.item(), value_loss.item()
 
