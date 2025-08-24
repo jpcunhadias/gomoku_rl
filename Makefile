@@ -2,7 +2,7 @@
 # Run `make help` to see available commands
 
 .PHONY: help lint lint-fix format format-ruff format-black format-all clean all \
-        self-play train debug analyze_buffer eval
+        self-play train debug analyze_buffer eval reset micro_train
 
 # Set PYTHONPATH to current directory (project root)
 export PYTHONPATH := $(shell pwd)
@@ -39,8 +39,12 @@ debug:
   --checkpoint checkpoints/policy_value_net_best.pth \
   --buffer checkpoints/replay_buffer.pkl \
   --batch 256 \
-  --output debug/debug_outputs
-
+  --output debug/debug_outputs && \
+	python debug/policy_head_check.py \
+  --checkpoint checkpoints/policy_value_net_best.pth \
+  --buffer checkpoints/replay_buffer.pkl \
+  --batch 512 && \
+	python debug/training_smoke_check.py
 
 analyze_buffer:
 	python cli/self_play/analyze_buffer.py
@@ -68,3 +72,13 @@ clean:
 
 # Combined quality check
 all: lint-fix format
+
+reset:
+	python scripts/reset_value_head.py \
+  --ckpt_in checkpoints/policy_value_net_best.pth \
+  --ckpt_out checkpoints/policy_value_net_reset_value.pth
+
+micro_train:
+	python scripts/micro_train_value_stabilize_v3.py
+
+
