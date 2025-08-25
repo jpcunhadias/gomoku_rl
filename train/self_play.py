@@ -13,6 +13,7 @@ from mcts.evaluators import NeuralEvaluator
 from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
 from train.augmentation import augment_data
+from train.canonicalize import canonicalize_state, minhash_symmetries
 from train.distributions import entropy_over_legal, kl_over_legal
 from train.replay_buffer import ReplayBuffer
 from train.sample_logger import SampleLogger
@@ -105,6 +106,9 @@ class SelfPlayRunner:
             h_net = entropy_over_legal(net_pi, legal_mask)
             kl_nm = kl_over_legal(net_pi, pi, legal_mask)
 
+            state_canon = canonicalize_state(state_tensor)
+            canon_hash = minhash_symmetries(state_canon)
+
             rec = SampleV2(
                 state=state_tensor,
                 pi_mcts=pi,
@@ -122,7 +126,7 @@ class SelfPlayRunner:
                 entropy_pi_net=h_net,
                 kl_net_mcts=kl_nm,
                 symmetry_id=0,  # Fill properly if you record which transform you applied later
-                canon_hash=None,
+                canon_hash=canon_hash,
             )
 
             game_data.append((state_tensor, pi, 1 if move_number % 2 == 0 else -1))
