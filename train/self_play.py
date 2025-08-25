@@ -1,6 +1,6 @@
 import os
 from types import SimpleNamespace
-from typing import Callable, List, Tuple, Optional, Any
+from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -9,11 +9,14 @@ from tqdm import trange
 from game import encoder
 from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer
-from mcts.mcts import MCTS
 from mcts.evaluators import NeuralEvaluator
+from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
 from train.augmentation import augment_data
+from train.distributions import entropy_over_legal, kl_over_legal
 from train.replay_buffer import ReplayBuffer
+from train.sample_logger import SampleLogger
+from train.schema import SampleV2
 
 
 class SelfPlayRunner:
@@ -39,12 +42,14 @@ class SelfPlayRunner:
         self.temperature_schedule = temperature_schedule or (lambda move: 1.0)
         self.augment_fn = augment_fn
         self.verbose = verbose
+        self.logger = SampleLogger("checkpoints/selfplay_v2.jsonl")
 
     def play_game(self) -> None:
         """Play a single self-play game and store the resulting data."""
         board = GomokuBoard()
         game_data = []
         move_number = 0
+        recs_this_game = []
 
         if hasattr(self.player1, "reset"):
             self.player1.reset()
@@ -79,8 +84,50 @@ class SelfPlayRunner:
                 pi_arr[r, c] = prob
             pi = torch.from_numpy(pi_arr)
 
+            legal_mask = torch.zeros(board_size, board_size, dtype=torch.bool)
+            for r, c in board.get_legal_moves():
+                legal_mask[r, c] = True
+
+            # Optional diagnostics: run net once on this state to get net policy
+            with torch.no_grad():
+                logits, _ = current_player.mcts.evaluator_fn.model(
+                    state_tensor.unsqueeze(0).to(
+                        current_player.mcts.evaluator_fn.device
+                    )
+                )
+                net_pi = (
+                    torch.softmax(logits.view(-1), dim=0)
+                    .view(board_size, board_size)
+                    .cpu()
+                )
+
+            h_mcts = entropy_over_legal(pi, legal_mask)
+            h_net = entropy_over_legal(net_pi, legal_mask)
+            kl_nm = kl_over_legal(net_pi, pi, legal_mask)
+
+            rec = SampleV2(
+                state=state_tensor,
+                pi_mcts=pi,
+                v_scalar=0.0,  # Fill v at game end if you log per-move; or log at end
+                legal_mask=legal_mask,
+                move_number=move_number,
+                sims=self.player1.mcts.n_simulations
+                if hasattr(self.player1.mcts, "n_simulations")
+                else -1,
+                tau=getattr(current_player, "temperature", 1.0),
+                c_puct=getattr(self.player1.mcts, "c_puct", 1.5),
+                dirichlet_alpha=getattr(current_player, "dirichlet_alpha", 0.3),
+                dirichlet_eps=getattr(current_player, "dirichlet_epsilon", 0.25),
+                entropy_pi_mcts=h_mcts,
+                entropy_pi_net=h_net,
+                kl_net_mcts=kl_nm,
+                symmetry_id=0,  # Fill properly if you record which transform you applied later
+                canon_hash=None,
+            )
+
             game_data.append((state_tensor, pi, 1 if move_number % 2 == 0 else -1))
 
+            # Apply the selected move and advance
             if not isinstance(action, tuple):
                 action = board.index_to_move(action)
             board.apply_move(*action)
@@ -90,6 +137,9 @@ class SelfPlayRunner:
 
             move_number += 1
 
+            # Write as a dict (dataclasses.asdict is fine too)
+            self.logger.write(rec.__dict__)
+
         winner = board.get_winner()
         if winner == 2:
             winner = -1
@@ -98,12 +148,13 @@ class SelfPlayRunner:
 
         # Encode results as scalar: -1=loss, 0=draw, 1=win
         final_data = []
-        for state_tensor, pi_tensor, player in game_data:
-            if winner == 0:
-                z = 0.0
-            else:
-                z = 1.0 if winner == player else -1.0
+        for (state_tensor, pi_tensor, player_sign), rec in zip(
+            game_data, recs_this_game
+        ):
+            z = 0.0 if winner == 0 else (1.0 if winner == player_sign else -1.0)
             final_data.append((state_tensor, pi_tensor, z))
+            rec.v_scalar = z
+            self.logger.write(rec.__dict__)  # write once per move now that z is known
 
         if self.augment_fn:
             final_data = self.augment_fn(final_data)
