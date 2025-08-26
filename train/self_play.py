@@ -15,6 +15,7 @@ from model.policy_value_net import PolicyValueNet
 from train.augmentation import augment_data
 from train.canonicalize import canonicalize_state, minhash_symmetries
 from train.distributions import entropy_over_legal, kl_over_legal
+from train.diversity_manager import DiversityManager
 from train.replay_buffer import ReplayBuffer
 from train.sample_logger import SampleLogger
 from train.schema import SampleV2
@@ -36,6 +37,7 @@ class SelfPlayRunner:
             ]
         ] = None,
         verbose: bool = False,
+        diversity_manager: Optional[DiversityManager] = None,
     ) -> None:
         self.player1 = player1
         self.player2 = player2
@@ -44,13 +46,14 @@ class SelfPlayRunner:
         self.augment_fn = augment_fn
         self.verbose = verbose
         self.logger = SampleLogger("checkpoints/selfplay_v2.jsonl")
+        self.div_manager = diversity_manager
 
-    def play_game(self) -> None:
+    def play_game(self) -> int:
         """Play a single self-play game and store the resulting data."""
         board = GomokuBoard()
         game_data = []
-        move_number = 0
         recs_this_game = []
+        move_number = 0
 
         if hasattr(self.player1, "reset"):
             self.player1.reset()
@@ -60,13 +63,8 @@ class SelfPlayRunner:
         while not board.is_terminal():
             current_player = self.player1 if move_number % 2 == 0 else self.player2
 
-            # Encode the board from the perspective of the player whose
-            # turn it is. ``board.current_player`` is 1 for player one and
-            # 2 for player two, which matches the expected input of
-            # ``board_to_tensor``.
             state_tensor = encoder.board_to_tensor(board, board.current_player)
 
-            # Set temperature for MCTS if needed
             if isinstance(current_player, type(self.player1)) and hasattr(
                 current_player, "set_temperature"
             ):
@@ -78,10 +76,7 @@ class SelfPlayRunner:
             board_size = board.board_size
             pi_arr = np.zeros((board_size, board_size), dtype=np.float32)
             for move, prob in visit_probs.items():
-                if isinstance(move, tuple):
-                    r, c = move
-                else:
-                    r, c = board.index_to_move(move)
+                r, c = move if isinstance(move, tuple) else board.index_to_move(move)
                 pi_arr[r, c] = prob
             pi = torch.from_numpy(pi_arr)
 
@@ -89,7 +84,7 @@ class SelfPlayRunner:
             for r, c in board.get_legal_moves():
                 legal_mask[r, c] = True
 
-            # Optional diagnostics: run net once on this state to get net policy
+            # Net policy on THIS state (optional diagnostics)
             with torch.no_grad():
                 logits, _ = current_player.mcts.evaluator_fn.model(
                     state_tensor.unsqueeze(0).to(
@@ -112,45 +107,39 @@ class SelfPlayRunner:
             rec = SampleV2(
                 state=state_tensor,
                 pi_mcts=pi,
-                v_scalar=0.0,  # Fill v at game end if you log per-move; or log at end
+                v_scalar=0.0,  # fill after game ends
                 legal_mask=legal_mask,
                 move_number=move_number,
-                sims=self.player1.mcts.n_simulations
-                if hasattr(self.player1.mcts, "n_simulations")
-                else -1,
+                sims=getattr(current_player.mcts, "n_simulations", -1),
                 tau=getattr(current_player, "temperature", 1.0),
-                c_puct=getattr(self.player1.mcts, "c_puct", 1.5),
+                c_puct=getattr(current_player.mcts, "c_puct", 1.5),
                 dirichlet_alpha=getattr(current_player, "dirichlet_alpha", 0.3),
                 dirichlet_eps=getattr(current_player, "dirichlet_epsilon", 0.25),
                 entropy_pi_mcts=h_mcts,
                 entropy_pi_net=h_net,
                 kl_net_mcts=kl_nm,
-                symmetry_id=0,  # Fill properly if you record which transform you applied later
+                symmetry_id=0,
                 canon_hash=canon_hash,
             )
+            recs_this_game.append(rec)
 
-            game_data.append((state_tensor, pi, 1 if move_number % 2 == 0 else -1))
+            # For training buffer, remember who is to move from this state
+            player_sign = 1 if move_number % 2 == 0 else -1
+            game_data.append((state_tensor, pi, player_sign))
 
-            # Apply the selected move and advance
+            # Apply the move and advance
             if not isinstance(action, tuple):
                 action = board.index_to_move(action)
             board.apply_move(*action)
-
             if self.verbose:
                 board.render()
-
             move_number += 1
 
-            # Write as a dict (dataclasses.asdict is fine too)
-            self.logger.write(rec.__dict__)
-
+        # Determine winner
         winner = board.get_winner()
-        if winner == 2:
-            winner = -1
-        elif winner is None:
-            winner = 0
+        winner = -1 if winner == 2 else (0 if winner is None else 1)
 
-        # Encode results as scalar: -1=loss, 0=draw, 1=win
+        # Build final_data and write logs once with v_scalar
         final_data = []
         for (state_tensor, pi_tensor, player_sign), rec in zip(
             game_data, recs_this_game
@@ -158,12 +147,20 @@ class SelfPlayRunner:
             z = 0.0 if winner == 0 else (1.0 if winner == player_sign else -1.0)
             final_data.append((state_tensor, pi_tensor, z))
             rec.v_scalar = z
-            self.logger.write(rec.__dict__)  # write once per move now that z is known
+            self.logger.write(rec.__dict__)
 
         if self.augment_fn:
             final_data = self.augment_fn(final_data)
 
-        self.buffer.add(final_data)
+        samples = final_data
+        metas = [(rec.move_number, rec.v_scalar) for rec in recs_this_game]
+        if self.div_manager is not None:
+            accepted = self.div_manager.admit_batch(samples, metas)
+        else:
+            accepted = samples
+
+        self.buffer.add(accepted)
+        return len(accepted)
 
 
 def initialize_model(
@@ -240,11 +237,15 @@ def run_selfplay_pipeline(
         augment_fn=augment_data,
         verbose=False,
     )
-
+    len_before = len(buffer)
+    added_total = 0
     for i in trange(config.num_self_play_games, desc="Self-play games"):
-        runner.play_game()
-
-    print(f"\nBuffer filled with {len(buffer)} samples.")
+        added_total += runner.play_game()
+    len_after = len(buffer)
+    print(
+        f"[DEBUG] before={len_before}  added≈{added_total}  after={len_after}  delta={len_after - len_before}"
+    )
+    # print(f"\nBuffer filled with {len(buffer)} samples.")
 
     if buffer_save_path:
         os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
