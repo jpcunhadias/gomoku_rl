@@ -3,12 +3,12 @@ from types import SimpleNamespace
 
 def get_config() -> SimpleNamespace:
     return SimpleNamespace(
-        num_self_play_games=50,
+        num_self_play_games=20,
         self_play_num_simulations=800,
         batch_size=128,
         learning_rate=1e-3,
-        epochs=1000,
-        steps_per_epoch=100,
+        epochs=2,
+        steps_per_epoch=50,
         reload_buffer_every=250,
         replay_buffer_size=30000,
         save_path="checkpoints/policy_value_net.pth",
@@ -21,4 +21,5 @@ def get_config() -> SimpleNamespace:
         add_dirichlet_noise=True,
         c_puct_pure=2.0,
         use_rave=False,
+        use_stratified_sampler=True,
     )
