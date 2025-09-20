@@ -29,4 +29,5 @@ class SampleV2:
     symmetry_id: int  # 0..7 (as recorded)
     canon_hash: Optional[int]  # None for now
 
+    # Indicates the version of the SampleV2 schema. Increment this value whenever the structure of the dataclass changes in a way that affects serialization, deserialization, or compatibility with stored data.
     schema_version: int = 2
