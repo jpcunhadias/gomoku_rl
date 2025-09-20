@@ -21,7 +21,7 @@ TARGET_MIX = {
     BucketKey("draw", "late"): 0.0,
 }
 
-# assert abs(sum(TARGET_MIX.values()) - 1.0) < 1e-9
+assert abs(sum(TARGET_MIX.values()) - 1.0) < 1e-9
 
 
 class StratifiedBatchSampler:
