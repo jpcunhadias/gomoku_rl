@@ -106,8 +106,6 @@ def main():
 
     buffer = ReplayBuffer.load(args.buffer)
     states, pis, _ = buffer.sample(args.batch)  # states [B,3,8,8], pis [B,8,8]
-    states0 = states.clone()
-    pis0 = pis.clone()
 
     tol = 1e-6
     inv_fail = 0

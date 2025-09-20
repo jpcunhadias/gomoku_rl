@@ -8,7 +8,18 @@ from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
 from model.policy_value_net import PolicyValueNet
+from train.bucketer import BucketKey
 from train.replay_buffer import ReplayBuffer
+
+
+def _write_debug_log(path: Optional[str], content: str) -> None:
+    """Helper method to write debug logs safely."""
+    if path:
+        try:
+            with open(path, "a") as f:
+                f.write(content)
+        except Exception as e:
+            print(f"[Debug Log Error] Could not write to {path}: {e}")
 
 
 class AlphaZeroTrainer:
@@ -62,6 +73,18 @@ class AlphaZeroTrainer:
 
         self.writer = SummaryWriter(log_dir=os.path.join("logs", "train"))
 
+        if getattr(config, "use_stratified_sampler", False):
+            from train.stratified_sampler import TARGET_MIX, StratifiedBatchSampler
+
+            self.sampler = StratifiedBatchSampler(
+                sidecar_jsonl="checkpoints/selfplay_v2.jsonl",
+                buffer_len_fn=lambda: len(self.replay_buffer),
+                target_mix=TARGET_MIX,
+                refresh_every=max(1, self.steps_per_epoch // 2),
+            )
+        else:
+            self.sampler = None
+
     def compute_loss(
         self,
         policy_logits: torch.Tensor,
@@ -89,15 +112,6 @@ class AlphaZeroTrainer:
 
         return total_loss, policy_loss.item(), value_loss.item()
 
-    def _write_debug_log(self, path: Optional[str], content: str) -> None:
-        """Helper method to write debug logs safely."""
-        if path:
-            try:
-                with open(path, "a") as f:
-                    f.write(content)
-            except Exception as e:
-                print(f"[Debug Log Error] Could not write to {path}: {e}")
-
     def train(self, debug: bool = False) -> Tuple[Optional[int], float]:
         """
         Main training loop.
@@ -118,8 +132,8 @@ class AlphaZeroTrainer:
         )
 
         for epoch in range(1, self.epochs + 1):
-            epoch_policy_loss = 0
-            epoch_value_loss = 0
+            epoch_policy_loss = 0.0
+            epoch_value_loss = 0.0
             value_preds_this_epoch = []
 
             if epoch % self.reload_buffer_every == 0 and epoch != 1:
@@ -127,21 +141,39 @@ class AlphaZeroTrainer:
                     f"[Trainer] Reloading replay buffer from disk at epoch {epoch}..."
                 )
                 self.replay_buffer = ReplayBuffer.load("checkpoints/replay_buffer.pkl")
+                if self.sampler is not None:
+                    self.sampler.refresh()
+
+            if self.sampler is not None:
+                self.sampler.begin_epoch()
 
             for step in range(self.steps_per_epoch):
-                states, target_policies, target_values = self.replay_buffer.sample(
-                    self.batch_size
-                )
+                if self.sampler is None:
+                    states, target_policies, target_values = self.replay_buffer.sample(
+                        self.batch_size
+                    )
+                    if set(torch.unique(target_values).tolist()) <= {0.0, 1.0, 2.0}:
+                        target_values = target_values - 1.0
+                    target_values = target_values.to(torch.float32)
 
-                states = states.to(self.device)
-                target_policies = target_policies.to(self.device)
-                target_values = target_values.to(torch.float32).to(self.device)
+                    states = states.to(self.device)
+                    target_policies = target_policies.to(self.device)
+                    target_values = target_values.to(self.device)
+                else:
+                    idxs = self.sampler.sample_indices(self.batch_size)
+                    # in-place gather from buffer
+                    batch = [self.replay_buffer.buffer[i] for i in idxs]
+                    states, target_policies, target_values = zip(*batch)
 
-                # If legacy {0,1,2} labels sneak in, remap to {-1,0,1}
-                uniq = torch.unique(target_values).tolist()
-                if all(u in (0.0, 1.0, 2.0) for u in uniq):
-                    target_values = target_values - 1.0
+                    states = torch.stack(states).to(self.device)
+                    target_policies = torch.stack(target_policies).to(self.device)
+                    target_values = torch.tensor(
+                        target_values, dtype=torch.float32, device=self.device
+                    )
+                    if set(torch.unique(target_values).tolist()) <= {0.0, 1.0, 2.0}:
+                        target_values = target_values - 1.0
 
+                target_policies = target_policies.to(torch.float32)
                 action_size = self.model.policy_fc.out_features
                 target_policies = target_policies.view(-1, action_size)
 
@@ -154,7 +186,7 @@ class AlphaZeroTrainer:
                         value_std = value_pred.std().item()
                         value_preds_this_epoch.append((value_mean, value_std))
 
-                    self._write_debug_log(
+                    _write_debug_log(
                         value_debug_path,
                         f"\nEpoch {epoch}, Step {step}:\n"
                         + "".join(
@@ -173,7 +205,7 @@ class AlphaZeroTrainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
                 if debug:
-                    self._write_debug_log(
+                    _write_debug_log(
                         grad_log_path,
                         f"\nEpoch {epoch}, Step {step}:\n"
                         + "".join(
@@ -191,7 +223,7 @@ class AlphaZeroTrainer:
             avg_v_loss = epoch_value_loss / self.steps_per_epoch
 
             if debug:
-                self._write_debug_log(
+                _write_debug_log(
                     loss_log_path,
                     f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}\n",
                 )
@@ -202,7 +234,7 @@ class AlphaZeroTrainer:
                 mean_of_stds = sum(x[1] for x in value_preds_this_epoch) / len(
                     value_preds_this_epoch
                 )
-                self._write_debug_log(
+                _write_debug_log(
                     stats_log_path,
                     f"Epoch {epoch}: value_pred mean = {mean_of_means:.4f}, std = {mean_of_stds:.4f}\n",
                 )
@@ -210,6 +242,43 @@ class AlphaZeroTrainer:
             print(
                 f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}"
             )
+
+            if self.sampler is not None:
+                total_examples = self.batch_size * self.steps_per_epoch
+                target_mix = self.sampler.target_mix  # normalized {BucketKey: frac}
+
+                requested_counts = {
+                    k: int(round(v * total_examples)) for k, v in target_mix.items()
+                }
+                realized_counts = self.sampler.end_epoch_report()
+
+                # Fill missing keys with 0
+                for k in target_mix.keys():
+                    requested_counts.setdefault(k, 0)
+                    realized_counts.setdefault(k, 0)
+
+                # Fractions + L1 gap
+                req_frac = {
+                    k: requested_counts[k] / max(1, total_examples) for k in target_mix
+                }
+                rel_frac = {
+                    k: realized_counts[k] / max(1, total_examples) for k in target_mix
+                }
+                l1_gap = sum(abs(req_frac[k] - rel_frac[k]) for k in target_mix)
+
+                phases = ["early", "mid", "late"]
+                outcomes = ["win", "draw", "loss"]
+
+                print("\n[Sampler epoch mix] requested vs realized (counts)")
+                print("bucket".ljust(18) + "req".rjust(8) + "real".rjust(8))
+                for o in outcomes:
+                    for p in phases:
+                        k = BucketKey(o, p)
+                        print(
+                            f"{o}:{p}".ljust(18)
+                            + f"{requested_counts[k]:8d}{realized_counts[k]:8d}"
+                        )
+                print(f"[Sampler] L1 gap (fractions): {l1_gap:.3f}\n")
 
             if avg_v_loss < self.best_value_loss:
                 self.best_value_loss = avg_v_loss
