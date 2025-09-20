@@ -29,17 +29,19 @@ class DiversityManager:
         Target absolute counts per bucket for a ~30k window.
         Heuristic: balance outcomes roughly, bias midgame slightly.
         """
-        # Fractions sum to ~1.00
         fracs = {
-            ("win", "early"): 0.08,
-            ("win", "mid"): 0.14,
-            ("win", "late"): 0.08,
-            ("loss", "early"): 0.08,
-            ("loss", "mid"): 0.14,
-            ("loss", "late"): 0.08,
-            ("draw", "early"): 0.04,
-            ("draw", "mid"): 0.14,
-            ("draw", "late"): 0.04,
+            # WIN buckets
+            ("win", "early"): 0.1093333333,  # 0.08 * 1.3666667
+            ("win", "mid"): 0.1913333333,  # 0.14 * 1.3666667
+            ("win", "late"): 0.1093333333,  # 0.08 * 1.3666667
+            # LOSS buckets
+            ("loss", "early"): 0.1093333333,
+            ("loss", "mid"): 0.1913333333,
+            ("loss", "late"): 0.1093333333,
+            # DRAW buckets
+            ("draw", "early"): 0.0,
+            ("draw", "mid"): 0.0,
+            ("draw", "late"): 0.0,
         }
         targets = {}
         for (o, p), f in fracs.items():

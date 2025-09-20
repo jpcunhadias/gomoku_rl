@@ -147,17 +147,23 @@ class SelfPlayRunner:
             z = 0.0 if winner == 0 else (1.0 if winner == player_sign else -1.0)
             final_data.append((state_tensor, pi_tensor, z))
             rec.v_scalar = z
-            self.logger.write(rec.__dict__)
-
-        if self.augment_fn:
-            final_data = self.augment_fn(final_data)
 
         samples = final_data
         metas = [(rec.move_number, rec.v_scalar) for rec in recs_this_game]
         if self.div_manager is not None:
             accepted = self.div_manager.admit_batch(samples, metas)
+            admitted_keys = set(metas[: len(accepted)])
         else:
             accepted = samples
+            admitted_keys = set(metas)
+
+        for rec in recs_this_game:
+            key = (rec.move_number, rec.v_scalar)
+            rec.admitted = 1 if key in admitted_keys else 0
+            self.logger.write(rec.__dict__)
+
+        if self.augment_fn:
+            final_data = self.augment_fn(final_data)
 
         self.buffer.add(accepted)
         return len(accepted)
@@ -229,6 +235,10 @@ def run_selfplay_pipeline(
         print("No existing buffer found. Initializing new ReplayBuffer.")
         buffer = ReplayBuffer(max_size=config.replay_buffer_size)
 
+    diversity_manager = DiversityManager(
+        DiversityManager.default_targets(window_size=config.replay_buffer_size)
+    )
+
     runner = SelfPlayRunner(
         player1=player1,
         player2=player2,
@@ -236,7 +246,9 @@ def run_selfplay_pipeline(
         temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
         augment_fn=augment_data,
         verbose=False,
+        diversity_manager=diversity_manager,
     )
+
     len_before = len(buffer)
     added_total = 0
     for i in trange(config.num_self_play_games, desc="Self-play games"):
@@ -246,6 +258,9 @@ def run_selfplay_pipeline(
         f"[DEBUG] before={len_before}  added≈{added_total}  after={len_after}  delta={len_after - len_before}"
     )
     # print(f"\nBuffer filled with {len(buffer)} samples.")
+
+    counts = diversity_manager.snapshot_counts()
+    print(counts)
 
     if buffer_save_path:
         os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
