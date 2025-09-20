@@ -34,9 +34,7 @@ nn.init.zeros_(model.value_fc.bias)
 criterion = nn.SmoothL1Loss(beta=1.0)
 
 base_lr = 1e-3
-value_params = list(model.value_conv.parameters()) + list(
-    model.value_fc.parameters()
-)
+value_params = list(model.value_conv.parameters()) + list(model.value_fc.parameters())
 value_param_ids = {id(p) for p in value_params}
 policy_params = [p for p in model.parameters() if id(p) not in value_param_ids]
 

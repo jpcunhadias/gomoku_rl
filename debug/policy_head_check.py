@@ -146,7 +146,7 @@ def main():
     )
     print(f"[{'x' if violations_norm == 0 else ' '}] sum(π on legal) == 1 (±1e-6)")
     print(
-        f"[{'x' if early_band_ok else ' '}] normalized entropy median in [0.45, 0.65] (exploration sanity)"
+        f"[{'x' if early_band_ok else ' '}] normalized entropy median in [0.45, 0.65] (exploration sanity)"  # TODO
     )
     print("[x] KL computed (baseline)")
     print("[x] Top-k computed (diagnostic)")
