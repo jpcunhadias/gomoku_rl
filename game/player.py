@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 import random
-from typing import Any, Dict, Protocol, Tuple, Union
+from enum import Enum, auto
+from typing import Any, Dict, List, Protocol, Tuple
 
 import numpy as np
 
@@ -9,6 +12,11 @@ from mcts.mcts import MCTS
 
 # Configure logging for the module
 logger = logging.getLogger(__name__)
+
+
+class DirichletAlphaMode(Enum):
+    AUTO = auto()
+    FIXED = auto()
 
 
 class Player(Protocol):
@@ -64,7 +72,8 @@ class MCTSPlayer:
         mcts: MCTS,
         temperature: float = 1e-3,
         add_dirichlet_noise: bool = False,
-        dirichlet_alpha: Union[float, str] = "auto",
+        dirichlet_alpha_mode: DirichletAlphaMode = DirichletAlphaMode.AUTO,
+        dirichlet_alpha_fixed: float = 0.15,  # used if mode == FIXED
         dirichlet_epsilon: float = 0.25,
         name: str = "MCTSPlayer",
         dirichlet_alpha_min: float = 0.02,
@@ -73,11 +82,14 @@ class MCTSPlayer:
         self.mcts = mcts
         self.temperature = temperature
         self.add_dirichlet_noise = add_dirichlet_noise
-        self.dirichlet_alpha = dirichlet_alpha
-        self.dirichlet_epsilon = dirichlet_epsilon
-        self.dirichlet_alpha_min = dirichlet_alpha_min
-        self.dirichlet_alpha_max = dirichlet_alpha_max
-        self.move_number = 0  # Track move number internally
+
+        self.dirichlet_alpha_mode = dirichlet_alpha_mode
+        self.dirichlet_alpha_fixed = float(dirichlet_alpha_fixed)
+        self.dirichlet_epsilon = float(dirichlet_epsilon)
+        self.dirichlet_alpha_min = float(dirichlet_alpha_min)
+        self.dirichlet_alpha_max = float(dirichlet_alpha_max)
+
+        self.move_number = 0
         self.name = name
 
     def __repr__(self) -> str:
@@ -102,7 +114,6 @@ class MCTSPlayer:
         action_probs = self.mcts.get_action_probs(board, temp=self.temperature)
 
         if not action_probs:
-            # Fallback: pick random move if MCTS failed
             logger.warning("MCTS returned no moves. Picking random legal move.")
             legal_moves = board.get_legal_moves()
             selected_action = random.choice(legal_moves)
@@ -112,27 +123,19 @@ class MCTSPlayer:
                 return selected_action, probs_dict
             return selected_action
 
-        # === Add Dirichlet noise only on first move if enabled ===
+        # Root Dirichlet noise (one-time, at root only)
         if self.add_dirichlet_noise and root_noise:
-            alpha_eff = self._effective_dirichlet_alpha(board)
-            if isinstance(self.dirichlet_alpha, str) and self.dirichlet_alpha == "auto":
-                logger.debug(
-                    f"[Dirichlet] α_eff={alpha_eff:.3f}  ε={self.dirichlet_epsilon:.2f}  "
-                    f"|legal|={len(action_probs)}"
-                )
+            alpha_eff = self.get_dirichlet_alpha(board)
+            logger.debug(
+                "[Dirichlet] alpha_eff=%.3f  eps=%.2f  |legal|=%d",
+                alpha_eff,
+                self.dirichlet_epsilon,
+                len(action_probs),
+            )
             action_probs = self._add_dirichlet_noise(action_probs, alpha=alpha_eff)
 
         actions, probs = zip(*action_probs.items())
-
-        # Very small negative epsilons can appear from float noise; clamp defensively.
-        probs = [max(0.0, float(p)) for p in probs]
-        s = sum(probs)
-        if s == 0.0:
-            # extremely defensive: fall back to uniform over current actions
-            probs = [1.0 / len(probs)] * len(probs)
-        else:
-            # renormalize for numerical safety
-            probs = [p / s for p in probs]
+        probs = self._normalize_probabilities(list(probs))
 
         if self.temperature <= 1e-3:
             selected_action = max(action_probs.items(), key=lambda x: x[1])[0]
@@ -140,35 +143,33 @@ class MCTSPlayer:
             selected_action = random.choices(actions, weights=probs, k=1)[0]
 
         self.move_number += 1
+        return (selected_action, action_probs) if return_probs else selected_action
 
-        if return_probs:
-            return selected_action, action_probs
-        return selected_action
+    @staticmethod
+    def _normalize_probabilities(probs: List[float]) -> List[float]:
+        """Clamp negatives, renormalize, uniform fallback if degenerate."""
+        probs = [max(0.0, float(p)) for p in probs]
+        s = sum(probs)
+        if s <= 1e-12:
+            return [1.0 / len(probs)] * len(probs) if probs else []
+        return [p / s for p in probs]
 
-    def _effective_dirichlet_alpha(self, board: GomokuBoard) -> float:
-        # if "auto" or <=0 auto-compute; else user-provided
-        if (
-            isinstance(self.dirichlet_alpha, str) and self.dirichlet_alpha == "auto"
-        ) or (
-            isinstance(self.dirichlet_alpha, (int, float)) and self.dirichlet_alpha <= 0
-        ):
-            n_legal = max(1, len(board.get_legal_moves()))
-            alpha = 10.0 / n_legal
-            # clip
-            alpha = float(
-                np.clip(alpha, self.dirichlet_alpha_min, self.dirichlet_alpha_max)
-            )
-            return alpha
-        return float(self.dirichlet_alpha)
+    def get_dirichlet_alpha(self, board: GomokuBoard) -> float:
+        if self.dirichlet_alpha_mode is DirichletAlphaMode.FIXED:
+            return float(self.dirichlet_alpha_fixed)
+        # AUTO: alpha ≈ 10 / n_legal, clipped
+        n_legal = max(1, len(board.get_legal_moves()))
+        alpha = 10.0 / n_legal
+        return float(np.clip(alpha, self.dirichlet_alpha_min, self.dirichlet_alpha_max))
 
     def _add_dirichlet_noise(
         self, action_probs: Dict[Any, float], alpha: float
     ) -> Dict[Any, float]:
         actions = list(action_probs.keys())
         noise = np.random.dirichlet([alpha] * len(actions))
-        noisy_probs: Dict[Any, float] = {}
-        for a, n in zip(actions, noise):
-            noisy_probs[a] = (1 - self.dirichlet_epsilon) * action_probs[
-                a
-            ] + self.dirichlet_epsilon * n
-        return noisy_probs
+        # convex mix keeps sum==1 if inputs sum==1
+        return {
+            a: (1 - self.dirichlet_epsilon) * action_probs[a]
+            + self.dirichlet_epsilon * n
+            for a, n in zip(actions, noise)
+        }
