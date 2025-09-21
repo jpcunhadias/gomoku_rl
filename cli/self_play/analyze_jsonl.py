@@ -4,8 +4,11 @@ from collections import defaultdict
 
 import numpy as np
 
+from train.config import get_config
+
 PATH = "checkpoints/selfplay_v2.jsonl"
-TAU_CUTOFF_PLIES = 6  # keep in sync with your config.tau_cutoff_plies if you want
+# Dynamically fetch tau_cutoff_plies from the configuration
+TAU_CUTOFF_PLIES = get_config().tau_cutoff_plies
 
 
 def load_jsonl(path):
