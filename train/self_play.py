@@ -65,7 +65,6 @@ class SelfPlayRunner:
         move_number = 0
         early_entropies = []  # H(π_mcts) over legal for early plies
         open5_key = None
-        tau_cutoff = getattr(self, "tau_cutoff_plies", 12)
 
         if hasattr(self.player1, "reset"):
             self.player1.reset()
