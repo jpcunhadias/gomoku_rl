@@ -1,3 +1,4 @@
+import logging
 import random
 from typing import Any, Dict, Protocol, Tuple, Union
 
@@ -5,6 +6,9 @@ import numpy as np
 
 from game.gomoku import GomokuBoard
 from mcts.mcts import MCTS
+
+# Configure logging for the module
+logger = logging.getLogger(__name__)
 
 
 class Player(Protocol):
@@ -99,7 +103,7 @@ class MCTSPlayer:
 
         if not action_probs:
             # Fallback: pick random move if MCTS failed
-            print("[WARNING] MCTS returned no moves. Picking random legal move.")
+            logger.warning("MCTS returned no moves. Picking random legal move.")
             legal_moves = board.get_legal_moves()
             selected_action = random.choice(legal_moves)
             if return_probs:
@@ -111,9 +115,8 @@ class MCTSPlayer:
         # === Add Dirichlet noise only on first move if enabled ===
         if self.add_dirichlet_noise and root_noise:
             alpha_eff = self._effective_dirichlet_alpha(board)
-            # (Optional) one-time debug per game
             if isinstance(self.dirichlet_alpha, str) and self.dirichlet_alpha == "auto":
-                print(
+                logger.debug(
                     f"[Dirichlet] α_eff={alpha_eff:.3f}  ε={self.dirichlet_epsilon:.2f}  "
                     f"|legal|={len(action_probs)}"
                 )
