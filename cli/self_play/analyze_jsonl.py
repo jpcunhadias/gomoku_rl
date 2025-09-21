@@ -19,7 +19,7 @@ def load_jsonl(path):
                 continue
             try:
                 yield json.loads(line)
-            except Exception:
+            except json.JSONDecodeError:
                 # skip malformed lines silently
                 continue
 
