@@ -222,7 +222,7 @@ class SelfPlayRunner:
         return "late"
 
     def _tau_for_move(self, move_number: int) -> float:
-        cutoff = getattr(self, "tau_cutoff_plies", 12)
+        cutoff = self.tau_cutoff_plies
         tau_early = getattr(self.config, "tau_early", 0.5) if self.config else 0.5
         return tau_early if move_number < cutoff else 0.0
 
