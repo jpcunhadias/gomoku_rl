@@ -8,7 +8,7 @@ from tqdm import trange
 
 from game import encoder
 from game.gomoku import GomokuBoard
-from game.player import MCTSPlayer
+from game.player import DirichletAlphaMode, MCTSPlayer
 from mcts.evaluators import NeuralEvaluator
 from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
@@ -256,11 +256,12 @@ def create_players(
     player_kwargs = {
         "temperature": config.temperature,
         "add_dirichlet_noise": config.add_dirichlet_noise,
-        "dirichlet_alpha": (
-            "auto"
+        "dirichlet_alpha_mode": (
+            DirichletAlphaMode.AUTO
             if getattr(config, "dirichlet_alpha_mode", "auto") == "auto"
-            else getattr(config, "dirichlet_alpha_fixed", 0.15)
+            else DirichletAlphaMode.FIXED
         ),
+        "dirichlet_alpha_fixed": getattr(config, "dirichlet_alpha_fixed", 0.15),
         "dirichlet_epsilon": getattr(config, "dirichlet_epsilon", 0.25),
         "dirichlet_alpha_min": getattr(config, "dirichlet_alpha_min", 0.02),
         "dirichlet_alpha_max": getattr(config, "dirichlet_alpha_max", 0.50),
