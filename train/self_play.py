@@ -29,7 +29,6 @@ class SelfPlayRunner:
         player1,
         player2,
         buffer: ReplayBuffer,
-        temperature_schedule: Optional[Callable[[int], float]] = None,
         augment_fn: Optional[
             Callable[
                 [List[Tuple[torch.Tensor, torch.Tensor, float]]],
@@ -38,15 +37,25 @@ class SelfPlayRunner:
         ] = None,
         verbose: bool = False,
         diversity_manager: Optional[DiversityManager] = None,
+        config: Optional[SimpleNamespace] = None,
     ) -> None:
         self.player1 = player1
         self.player2 = player2
         self.buffer = buffer
-        self.temperature_schedule = temperature_schedule or (lambda move: 1.0)
         self.augment_fn = augment_fn
         self.verbose = verbose
         self.logger = SampleLogger("checkpoints/selfplay_v2.jsonl")
         self.div_manager = diversity_manager
+        self.config = config
+
+        if self.config is not None:
+            self.tau_cutoff_plies = getattr(config, "tau_cutoff_plies", 12)
+            self.phase_cutoffs = getattr(
+                config, "phase_cutoffs", {"early": 12, "mid": 28}
+            )
+            self.sim_budget = getattr(
+                config, "sim_budget", {"early": 300, "mid": 200, "late": 120}
+            )
 
     def play_game(self) -> int:
         """Play a single self-play game and store the resulting data."""
@@ -54,6 +63,9 @@ class SelfPlayRunner:
         game_data = []
         recs_this_game = []
         move_number = 0
+        early_entropies = []  # H(π_mcts) over legal for early plies
+        open5_key = None
+        tau_cutoff = getattr(self, "tau_cutoff_plies", 12)
 
         if hasattr(self.player1, "reset"):
             self.player1.reset()
@@ -65,13 +77,18 @@ class SelfPlayRunner:
 
             state_tensor = encoder.board_to_tensor(board, board.current_player)
 
-            if isinstance(current_player, type(self.player1)) and hasattr(
-                current_player, "set_temperature"
-            ):
-                temp = self.temperature_schedule(move_number)
-                current_player.set_temperature(temp)
+            # Set τ schedule by move
+            if hasattr(current_player, "set_temperature"):
+                current_player.set_temperature(self._tau_for_move(move_number))
 
-            action, visit_probs = current_player.get_action(board, return_probs=True)
+            # Simulation budget shaping by phase
+            if hasattr(current_player.mcts, "n_simulations"):
+                current_player.mcts.n_simulations = self._sims_for_move(move_number)
+
+            root_noise = move_number == 0
+            action, visit_probs = current_player.get_action(
+                board, return_probs=True, root_noise=root_noise
+            )
 
             board_size = board.board_size
             pi_arr = np.zeros((board_size, board_size), dtype=np.float32)
@@ -131,6 +148,20 @@ class SelfPlayRunner:
             if not isinstance(action, tuple):
                 action = board.index_to_move(action)
             board.apply_move(*action)
+
+            # collect early entropies
+            if move_number < tau_cutoff:
+                early_entropies.append(float(h_mcts))
+
+            # capture opening-5 key (after applying the 5th move, i.e., move_number == 4)
+            # You already compute `canon_hash` for the current state BEFORE move applied,
+            # so we capture open5_key on the *next* iteration or capture AFTER apply_move:
+            if move_number == 4:
+                # board has just applied 5th move above; recompute canonical hash here quickly
+                state_after5 = encoder.board_to_tensor(board, board.current_player)
+                state_canon5 = canonicalize_state(state_after5)
+                open5_key = minhash_symmetries(state_canon5)
+
             if self.verbose:
                 board.render()
             move_number += 1
@@ -138,6 +169,16 @@ class SelfPlayRunner:
         # Determine winner
         winner = board.get_winner()
         winner = -1 if winner == 2 else (0 if winner is None else 1)
+
+        summary = {
+            "type": "game_summary",
+            "early_entropy_mcts_median": (
+                float(np.median(early_entropies)) if early_entropies else None
+            ),
+            "open5_key": open5_key,
+            "moves": move_number,  # final ply count
+        }
+        self.logger.write(summary)
 
         # Build final_data and write logs once with v_scalar
         final_data = []
@@ -148,25 +189,46 @@ class SelfPlayRunner:
             final_data.append((state_tensor, pi_tensor, z))
             rec.v_scalar = z
 
-        samples = final_data
-        metas = [(rec.move_number, rec.v_scalar) for rec in recs_this_game]
+        samples = final_data  # [(state_tensor, pi_tensor, z), ...]
+        metas = [
+            (i, rec.move_number, rec.v_scalar) for i, rec in enumerate(recs_this_game)
+        ]  # Ensure metas align with Meta type
+
         if self.div_manager is not None:
-            accepted = self.div_manager.admit_batch(samples, metas)
-            admitted_keys = set(metas[: len(accepted)])
+            accepted, accepted_metas = self.div_manager.admit_batch(samples, metas)
+            accepted_ids = {i for (i, _move_no, _z) in accepted_metas}
         else:
             accepted = samples
-            admitted_keys = set(metas)
+            accepted_ids = set(range(len(recs_this_game)))
 
-        for rec in recs_this_game:
-            key = (rec.move_number, rec.v_scalar)
-            rec.admitted = 1 if key in admitted_keys else 0
+        # mark admitted precisely
+        for i, rec in enumerate(recs_this_game):
+            rec.admitted = 1 if i in accepted_ids else 0
             self.logger.write(rec.__dict__)
 
         if self.augment_fn:
-            final_data = self.augment_fn(final_data)
+            accepted = self.augment_fn(accepted)
 
         self.buffer.add(accepted)
         return len(accepted)
+
+    def _phase_for_move(self, move_number: int) -> str:
+        # Use config.phase_cutoffs if available; fall back to simple bands
+        pc = getattr(self, "phase_cutoffs", {"early": 12, "mid": 28})
+        if move_number < pc["early"]:
+            return "early"
+        elif move_number < pc["mid"]:
+            return "mid"
+        return "late"
+
+    def _tau_for_move(self, move_number: int) -> float:
+        cutoff = getattr(self, "tau_cutoff_plies", 12)
+        tau_early = getattr(self.config, "tau_early", 0.5) if self.config else 0.5
+        return tau_early if move_number < cutoff else 0.0
+
+    def _sims_for_move(self, move_number: int) -> int:
+        budget = getattr(self, "sim_budget", {"early": 300, "mid": 200, "late": 120})
+        return int(budget[self._phase_for_move(move_number)])
 
 
 def initialize_model(
@@ -194,6 +256,14 @@ def create_players(
     player_kwargs = {
         "temperature": config.temperature,
         "add_dirichlet_noise": config.add_dirichlet_noise,
+        "dirichlet_alpha": (
+            "auto"
+            if getattr(config, "dirichlet_alpha_mode", "auto") == "auto"
+            else getattr(config, "dirichlet_alpha_fixed", 0.15)
+        ),
+        "dirichlet_epsilon": getattr(config, "dirichlet_epsilon", 0.25),
+        "dirichlet_alpha_min": getattr(config, "dirichlet_alpha_min", 0.02),
+        "dirichlet_alpha_max": getattr(config, "dirichlet_alpha_max", 0.50),
     }
 
     mcts_kwargs = {
@@ -243,10 +313,10 @@ def run_selfplay_pipeline(
         player1=player1,
         player2=player2,
         buffer=buffer,
-        temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
         augment_fn=augment_data,
         verbose=False,
         diversity_manager=diversity_manager,
+        config=config,
     )
 
     len_before = len(buffer)

@@ -252,12 +252,10 @@ class AlphaZeroTrainer:
                 }
                 realized_counts = self.sampler.end_epoch_report()
 
-                # Fill missing keys with 0
                 for k in target_mix.keys():
                     requested_counts.setdefault(k, 0)
                     realized_counts.setdefault(k, 0)
 
-                # Fractions + L1 gap
                 req_frac = {
                     k: requested_counts[k] / max(1, total_examples) for k in target_mix
                 }
@@ -266,19 +264,20 @@ class AlphaZeroTrainer:
                 }
                 l1_gap = sum(abs(req_frac[k] - rel_frac[k]) for k in target_mix)
 
-                phases = ["early", "mid", "late"]
-                outcomes = ["win", "draw", "loss"]
+                if getattr(self.config, "report_sampler_mix", False):  # 👈 flag
+                    phases = ["early", "mid", "late"]
+                    outcomes = ["win", "draw", "loss"]
 
-                print("\n[Sampler epoch mix] requested vs realized (counts)")
-                print("bucket".ljust(18) + "req".rjust(8) + "real".rjust(8))
-                for o in outcomes:
-                    for p in phases:
-                        k = BucketKey(o, p)
-                        print(
-                            f"{o}:{p}".ljust(18)
-                            + f"{requested_counts[k]:8d}{realized_counts[k]:8d}"
-                        )
-                print(f"[Sampler] L1 gap (fractions): {l1_gap:.3f}\n")
+                    print("\n[Sampler epoch mix] requested vs realized (counts)")
+                    print("bucket".ljust(18) + "req".rjust(8) + "real".rjust(8))
+                    for o in outcomes:
+                        for p in phases:
+                            k = BucketKey(o, p)
+                            print(
+                                f"{o}:{p}".ljust(18)
+                                + f"{requested_counts[k]:8d}{realized_counts[k]:8d}"
+                            )
+                    print(f"[Sampler] L1 gap (fractions): {l1_gap:.3f}\n")
 
             if avg_v_loss < self.best_value_loss:
                 self.best_value_loss = avg_v_loss
