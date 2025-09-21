@@ -191,7 +191,7 @@ class SelfPlayRunner:
 
         samples = final_data  # [(state_tensor, pi_tensor, z), ...]
         metas = [
-            (i, rec.move_number, rec.v_scalar) for i, rec in enumerate(recs_this_game)
+            (i, int(rec.move_number), float(rec.v_scalar)) for i, rec in enumerate(recs_this_game)
         ]  # Ensure metas align with Meta type
 
         if self.div_manager is not None:
