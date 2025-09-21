@@ -1,6 +1,6 @@
 import random
 from collections import defaultdict
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import torch
 
@@ -8,7 +8,7 @@ from train.bucketer import BucketKey, bucket_key
 
 # Type alias: a training tuple and its metadata (move_number, z)
 Sample = Tuple[torch.Tensor, torch.Tensor, float]  # (state, pi, z)
-Meta = Tuple[int, float]  # (move_no, z_scalar)
+Meta = Tuple[int, int, float]  # (local_idx, move_no, z_scalar)
 
 
 class DiversityManager:
@@ -51,10 +51,17 @@ class DiversityManager:
         return targets
 
     def admit_batch(
-        self, samples: Iterable[Sample], metas: Iterable[tuple[int, int, float]]
-    ) -> tuple[list[Sample], list[tuple[int, int, float]]]:
-        accepted_samples: list[Sample] = []
-        accepted_metas: list[tuple[int, int, float]] = []
+        self,
+        samples: Iterable[Sample],
+        metas: Iterable[Meta],
+    ) -> Tuple[List[Sample], List[Meta]]:
+        """
+        Admit samples by bucket (move_no, z_scalar).
+        Meta is (local_idx, move_no, z_scalar) so the caller can mark exactly which
+        per-move logs were accepted.
+        """
+        accepted_samples: List[Sample] = []
+        accepted_metas: List[Meta] = []
 
         for (s, m, z), (i, move_no, z_meta) in zip(samples, metas):
             key = bucket_key(int(move_no), float(z_meta))
