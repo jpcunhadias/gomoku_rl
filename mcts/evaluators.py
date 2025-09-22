@@ -116,7 +116,7 @@ class ThreatRolloutEvaluator:
     def _rollout_policy(self, board: GomokuBoard) -> Tuple[int, int]:
         legal_moves = board.get_legal_moves()
         if not legal_moves:
-            return None
+            return (-1, -1)
         if random.random() > self.epsilon:
             # Choose move maximizing threat score
             best_move, best_val = None, -float("inf")
@@ -126,7 +126,7 @@ class ThreatRolloutEvaluator:
                 val = self._threat_score(sim)
                 if val > best_val:
                     best_move, best_val = move, val
-            return best_move
+            return best_move if best_move is not None else (-1, -1)
         return random.choice(legal_moves)
 
     def _rollout_value(self, board: GomokuBoard) -> float:
