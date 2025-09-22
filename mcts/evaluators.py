@@ -1,9 +1,7 @@
 import random
-from typing import List, Tuple, Any
-from typing import Union
+from typing import Any, List, Tuple
 
 import torch
-from numpy import ndarray, dtype
 
 from game.encoder import board_to_tensor
 from game.gomoku import GomokuBoard
@@ -18,48 +16,31 @@ class NeuralEvaluator:
         self.device = device
         self.model.eval()
 
-    def evaluate(self, board: Any) -> Tuple[List[Tuple[Any, float]], float]:
-        """Return action priors and value for ``board``."""
+    def __call__(self, board: Any) -> Tuple[List[Tuple[Any, float]], float]:
         tensor_input = (
             board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
         )
 
         with torch.no_grad():
             policy_logits, value = self.model(tensor_input)
-            policy = torch.softmax(policy_logits.view(-1), dim=0).cpu().numpy()
-            value = value.view(-1).item()
+            # flat softmax once
+            flat = torch.softmax(policy_logits.view(-1), dim=0).cpu().numpy()
+            value = float(value.view(-1).item())
 
-        legal_moves = board.get_legal_move_indices()
-        action_priors = [(i, policy[i]) for i in legal_moves]
-        return action_priors, value
+        # mask to LEGAL, then renormalize
+        legal_moves = board.get_legal_moves()  # [(r,c), ...]
+        if not legal_moves:
+            return [], value
 
-    def __call__(
-        self, board: Any
-    ) -> tuple[
-        list[tuple[Any, ndarray[Any, Union[dtype[Any], Any]]]], Union[int, float, bool]
-    ]:
-        """Evaluate ``board`` when used as a callable."""
-        tensor_input = (
-            board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
-        )
+        legal_probs = [float(flat[r * board.board_size + c]) for (r, c) in legal_moves]
+        s = sum(legal_probs)
+        if s <= 1e-12:
+            # uniform fallback if all tiny/zero
+            legal_probs = [1.0 / len(legal_moves)] * len(legal_moves)
+        else:
+            legal_probs = [p / s for p in legal_probs]
 
-        board_size = board.board_size
-
-        with torch.no_grad():
-            policy_logits, value = self.model(tensor_input)
-
-        policy = (
-            torch.softmax(policy_logits.view(-1), dim=0)
-            .view(board_size, board_size)
-            .cpu()
-            .numpy()
-        )
-
-        value = value.view(-1).item()
-
-        legal_moves = board.get_legal_moves()
-        action_priors = [(move, policy[move[0], move[1]]) for move in legal_moves]
-
+        action_priors = list(zip(legal_moves, legal_probs))
         return action_priors, value
 
 
