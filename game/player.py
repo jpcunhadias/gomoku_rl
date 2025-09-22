@@ -22,7 +22,7 @@ class DirichletAlphaMode(Enum):
 class Player(Protocol):
     """Protocol for player implementations."""
 
-    def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
+    def get_action(self, board: GomokuBoard, *args, **kwargs) -> Tuple[int, int]:
         """Return the action ``(row, col)`` chosen on ``board``."""
         ...
 
@@ -78,6 +78,7 @@ class MCTSPlayer:
         name: str = "MCTSPlayer",
         dirichlet_alpha_min: float = 0.02,
         dirichlet_alpha_max: float = 0.50,
+        dirichlet_concentration: float = 10.0,
     ) -> None:
         self.mcts = mcts
         self.temperature = temperature
@@ -88,6 +89,7 @@ class MCTSPlayer:
         self.dirichlet_epsilon = float(dirichlet_epsilon)
         self.dirichlet_alpha_min = float(dirichlet_alpha_min)
         self.dirichlet_alpha_max = float(dirichlet_alpha_max)
+        self.dirichlet_concentration = float(dirichlet_concentration)
 
         self.move_number = 0
         self.name = name
@@ -111,7 +113,15 @@ class MCTSPlayer:
         If ``return_probs`` is ``True``, also return the visit-count based
         action probabilities produced by the search.
         """
-        action_probs = self.mcts.get_action_probs(board, temp=self.temperature)
+        # Prepare one-time root-noise tuple for MCTS (apply to priors inside MCTS)
+        root_noise_tuple = None
+        if self.add_dirichlet_noise and root_noise:
+            alpha_eff = self.get_dirichlet_alpha(board)
+            root_noise_tuple = (self.dirichlet_epsilon, alpha_eff)
+
+        action_probs = self.mcts.get_action_probs(
+            board, temp=self.temperature, root_noise=root_noise_tuple
+        )
 
         if not action_probs:
             logger.warning("MCTS returned no moves. Picking random legal move.")
@@ -122,17 +132,6 @@ class MCTSPlayer:
                 probs_dict: Dict[Any, float] = {m: uniform for m in legal_moves}
                 return selected_action, probs_dict
             return selected_action
-
-        # Root Dirichlet noise (one-time, at root only)
-        if self.add_dirichlet_noise and root_noise:
-            alpha_eff = self.get_dirichlet_alpha(board)
-            logger.debug(
-                "[Dirichlet] alpha_eff=%.3f  eps=%.2f  |legal|=%d",
-                alpha_eff,
-                self.dirichlet_epsilon,
-                len(action_probs),
-            )
-            action_probs = self._add_dirichlet_noise(action_probs, alpha=alpha_eff)
 
         actions, probs = zip(*action_probs.items())
         probs = self._normalize_probabilities(list(probs))
@@ -159,7 +158,7 @@ class MCTSPlayer:
             return float(self.dirichlet_alpha_fixed)
         # AUTO: alpha ≈ 10 / n_legal, clipped
         n_legal = max(1, len(board.get_legal_moves()))
-        alpha = 10.0 / n_legal
+        alpha = self.dirichlet_concentration / n_legal
         return float(np.clip(alpha, self.dirichlet_alpha_min, self.dirichlet_alpha_max))
 
     def _add_dirichlet_noise(
