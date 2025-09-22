@@ -264,7 +264,7 @@ class AlphaZeroTrainer:
                 }
                 l1_gap = sum(abs(req_frac[k] - rel_frac[k]) for k in target_mix)
 
-                if getattr(self.config, "report_sampler_mix", False):  # 👈 flag
+                if getattr(self.config, "report_sampler_mix", False):
                     phases = ["early", "mid", "late"]
                     outcomes = ["win", "draw", "loss"]
 
