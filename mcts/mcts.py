@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 import random
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Tuple, Union
 
 import numpy as np
 
@@ -30,7 +28,7 @@ class MCTS:
         self.n_simulations = n_simulations
         self.use_rave = use_rave
         self.root = TreeNode(use_rave=use_rave)
-        self.last_root_visit_counts: Dict[Any, int] | None = None
+        self.last_root_visit_counts: Union[Dict[Any, int], None] = None
         self._root_noise_applied = False
 
     def update_with_move(self, move: Any) -> None:
@@ -109,7 +107,10 @@ class MCTS:
             node.children[a].P = (1.0 - epsilon) * node.children[a].P + epsilon * n
 
     def get_action_probs(
-        self, board, temp: float = 1e-3, root_noise: tuple[float, float] | None = None
+        self,
+        board,
+        temp: float = 1e-3,
+        root_noise: Union[Tuple[float, float], None] = None,
     ):
         # Ensure root is expanded at least once
         if not self.root.children:
