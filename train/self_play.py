@@ -266,6 +266,7 @@ def create_players(
         "dirichlet_epsilon": getattr(config, "dirichlet_epsilon", 0.25),
         "dirichlet_alpha_min": getattr(config, "dirichlet_alpha_min", 0.02),
         "dirichlet_alpha_max": getattr(config, "dirichlet_alpha_max", 0.50),
+        "dirichlet_concentration": getattr(config, "dirichlet_concentration", 10.0),
     }
 
     mcts_kwargs = {
