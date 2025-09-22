@@ -1,5 +1,6 @@
 import time
 
+from configs.run_once import SEED  # noqa: F401 (import to set seeds)
 from train.config import get_config
 from train.self_play import run_selfplay_pipeline
 
