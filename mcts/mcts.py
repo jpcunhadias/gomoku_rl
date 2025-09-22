@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import random
-from typing import Callable, Dict, Any
+from typing import Any, Callable, Dict
 
 import numpy as np
 
