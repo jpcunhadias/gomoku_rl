@@ -1,3 +1,4 @@
+import logging
 import os
 from types import SimpleNamespace
 from typing import Any, Callable, List, Optional, Tuple
@@ -19,6 +20,11 @@ from train.diversity_manager import DiversityManager
 from train.replay_buffer import ReplayBuffer
 from train.sample_logger import SampleLogger
 from train.schema import SampleV2
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class SelfPlayRunner:
@@ -103,7 +109,7 @@ class SelfPlayRunner:
                     current_player.mcts.c_puct = self.config.c_puct  # type: ignore
 
             if move_number < self.tau_cutoff_plies:
-                print(
+                logging.info(
                     f"[τ dbg] ply={move_number} τ={getattr(current_player, 'temperature', None)}"
                 )
 
@@ -204,7 +210,7 @@ class SelfPlayRunner:
                         f" | visits n={stats['n_children']} "
                         f"min={stats['min']} max={stats['max']} mean={stats['mean']:.1f}"
                     )
-                print(msg)
+                logging.debug(msg)
 
             # capture opening-5 key (after applying the 5th move, i.e., move_number == 4)
             # You already compute `canon_hash` for the current state BEFORE move applied,
@@ -291,11 +297,11 @@ def initialize_model(
     model = PolicyValueNet(board_size=8).to(device)
     model._init_weights()
     if checkpoint_path and os.path.exists(checkpoint_path):
-        print(f"Loading model from checkpoint: {checkpoint_path}")
+        logging.info(f"Loading model from checkpoint: {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
     else:
-        print(
+        logging.info(
             "No checkpoint found or checkpoint loading skipped. Initialized new PolicyValueNet."
         )
     return model
@@ -342,7 +348,7 @@ def run_selfplay_pipeline(
 ) -> Tuple[PolicyValueNet, ReplayBuffer]:
     """Run a full self-play pipeline."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
+    logging.info(f"Using device: {device}")
 
     checkpoint_path = (
         "checkpoints/policy_value_net_best.pth" if load_checkpoint else None
@@ -355,10 +361,10 @@ def run_selfplay_pipeline(
     )
 
     if buffer_save_path and os.path.exists(buffer_save_path):
-        print(f"Loading existing replay buffer from {buffer_save_path}")
+        logging.info(f"Loading existing replay buffer from {buffer_save_path}")
         buffer = ReplayBuffer.load(buffer_save_path)
     else:
-        print("No existing buffer found. Initializing new ReplayBuffer.")
+        logging.info("No existing buffer found. Initializing new ReplayBuffer.")
         buffer = ReplayBuffer(max_size=config.replay_buffer_size)
 
     diversity_manager = DiversityManager(
@@ -380,17 +386,18 @@ def run_selfplay_pipeline(
     for i in trange(config.num_self_play_games, desc="Self-play games"):
         added_total += runner.play_game()
     len_after = len(buffer)
-    print(
+    logging.debug(
         f"[DEBUG] before={len_before}  added≈{added_total}  after={len_after}  delta={len_after - len_before}"
     )
-    # print(f"\nBuffer filled with {len(buffer)} samples.")
+    logging.info(f"Buffer filled with {len(buffer)} samples.")
 
     counts = diversity_manager.snapshot_counts()
-    print(counts)
+    logging.info(f"Diversity manager snapshot counts: {counts}")
+    logging.debug(counts)
 
     if buffer_save_path:
         os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
         buffer.save(buffer_save_path)
-        print(f"Replay buffer saved to {buffer_save_path}")
+        logging.info(f"Replay buffer saved to {buffer_save_path}")
 
     return model, buffer
