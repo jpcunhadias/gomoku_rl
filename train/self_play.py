@@ -72,6 +72,11 @@ class SelfPlayRunner:
         if hasattr(self.player2, "reset"):
             self.player2.reset()
 
+        if hasattr(self.player1.mcts, "reset_root"):
+            self.player1.mcts.reset_root()
+        if hasattr(self.player2.mcts, "reset_root"):
+            self.player2.mcts.reset_root()
+
         while not board.is_terminal():
             current_player = self.player1 if move_number % 2 == 0 else self.player2
 
@@ -81,9 +86,26 @@ class SelfPlayRunner:
             if hasattr(current_player, "set_temperature"):
                 current_player.set_temperature(self._tau_for_move(move_number))
 
-            # Simulation budget shaping by phase
-            if hasattr(current_player.mcts, "n_simulations"):
-                current_player.mcts.n_simulations = self._sims_for_move(move_number)
+            budget = self._sims_for_move(move_number)
+            if hasattr(current_player.mcts, "set_simulation_budget"):
+                current_player.mcts.set_simulation_budget(budget)
+            else:
+                current_player.mcts.n_simulations = budget
+
+            if hasattr(current_player.mcts, "c_puct"):
+                if move_number < getattr(self.config, "c_puct_cutoff_plies", 0):
+                    current_player.mcts.c_puct = getattr(
+                        self.config,
+                        "c_puct_early",
+                        self.config.c_puct,  # type: ignore
+                    )
+                else:
+                    current_player.mcts.c_puct = self.config.c_puct  # type: ignore
+
+            if move_number < self.tau_cutoff_plies:
+                print(
+                    f"[τ dbg] ply={move_number} τ={getattr(current_player, 'temperature', None)}"
+                )
 
             root_noise = move_number == 0
             action, visit_probs = current_player.get_action(
@@ -121,6 +143,12 @@ class SelfPlayRunner:
             state_canon = canonicalize_state(state_tensor)
             canon_hash = minhash_symmetries(state_canon)
 
+            alpha_eff = None
+            if move_number == 0 and getattr(
+                current_player, "add_dirichlet_noise", False
+            ):
+                alpha_eff = current_player.get_dirichlet_alpha(board)
+
             rec = SampleV2(
                 state=state_tensor,
                 pi_mcts=pi,
@@ -130,7 +158,7 @@ class SelfPlayRunner:
                 sims=getattr(current_player.mcts, "n_simulations", -1),
                 tau=getattr(current_player, "temperature", 1.0),
                 c_puct=getattr(current_player.mcts, "c_puct", 1.5),
-                dirichlet_alpha=getattr(current_player, "dirichlet_alpha", 0.3),
+                dirichlet_alpha=alpha_eff if alpha_eff is not None else 0.0,
                 dirichlet_eps=getattr(current_player, "dirichlet_epsilon", 0.25),
                 entropy_pi_mcts=h_mcts,
                 entropy_pi_net=h_net,
@@ -149,9 +177,34 @@ class SelfPlayRunner:
                 action = board.index_to_move(action)
             board.apply_move(*action)
 
+            self.player1.mcts.update_with_move(action)
+            self.player2.mcts.update_with_move(action)
+
             # collect early entropies
             if move_number < tau_cutoff:
                 early_entropies.append(float(h_mcts))
+
+            if move_number < 3:  # print for the first few plies
+                # top-5 mass on the flattened π grid (diagnostic only)
+                topk = torch.topk(pi.view(-1), k=min(5, pi.numel())).values.sum().item()
+                # pull visit-count stats from MCTS
+                stats = None
+                if hasattr(current_player.mcts, "root_visit_stats"):
+                    stats = current_player.mcts.root_visit_stats()
+
+                msg = (
+                    f"[dbg] ply={move_number} "
+                    f"τ={getattr(current_player, 'temperature', None)} "
+                    f"c_puct={getattr(current_player.mcts, 'c_puct', None)} "
+                    f"Hmcts={float(h_mcts):.3f} "
+                    f"top5_mass={topk:.3f}"
+                )
+                if stats:
+                    msg += (
+                        f" | visits n={stats['n_children']} "
+                        f"min={stats['min']} max={stats['max']} mean={stats['mean']:.1f}"
+                    )
+                print(msg)
 
             # capture opening-5 key (after applying the 5th move, i.e., move_number == 4)
             # You already compute `canon_hash` for the current state BEFORE move applied,
