@@ -36,11 +36,13 @@ def get_config() -> SimpleNamespace:
         dirichlet_alpha_max=0.03,  # tighter cap
         dirichlet_concentration=3.0,  # from 10 → 6 reduces α overall
         # simulation budget shaping
-        sim_budget=dict(
-            early=550, mid=200, late=120
-        ),  # a bit more early sims sharpens π
+        sim_budget={
+            "early": 550,
+            "mid": 200,
+            "late": 120,
+        },  # a bit more early sims sharpens π
         # phase cutoffs (plies)
-        phase_cutoffs=dict(early=12, mid=28),
+        phase_cutoffs={"early": 12, "mid": 28},
         # default MCTSPlayer temp (overridden per-move by τ schedule anyway)
         temperature=0.2,
     )
