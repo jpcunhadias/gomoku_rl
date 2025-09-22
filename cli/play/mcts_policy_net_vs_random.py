@@ -1,9 +1,9 @@
+from cli.play.utils import play_game
 from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer, RandomPlayer
+from mcts.evaluators import NeuralEvaluator
 from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
-from mcts.evaluators import NeuralEvaluator
-from cli.play.utils import play_game
 
 
 def play_mcts_net_vs_random() -> None:
@@ -16,7 +16,7 @@ def play_mcts_net_vs_random() -> None:
     model._init_weights()
     evaluator = NeuralEvaluator(model)
     # Create MCTS using the neural evaluator
-    mcts = MCTS(evaluator_fn=evaluator.evaluate, c_puct=1.5, n_simulations=100)
+    mcts = MCTS(evaluator_fn=evaluator, c_puct=1.5, n_simulations=100)
 
     # Create players
     mcts_player = MCTSPlayer(mcts)

@@ -1,8 +1,8 @@
 import pytest
 
 from game.gomoku import GomokuBoard
-from mcts.mcts import MCTS
 from mcts.evaluators import NeuralEvaluator
+from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
 
 
@@ -14,7 +14,7 @@ def test_mcts_runs_and_returns_probs():
     model = PolicyValueNet(board_size=8, num_blocks=5)
     model._init_weights()
     evaluator = NeuralEvaluator(model)
-    mcts = MCTS(evaluator_fn=evaluator.evaluate, c_puct=1.0, n_simulations=10)
+    mcts = MCTS(evaluator_fn=evaluator, c_puct=1.0, n_simulations=10)
 
     action_probs = mcts.get_action_probs(board, temp=1.0)
 

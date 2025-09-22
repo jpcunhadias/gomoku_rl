@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Optional, Dict, Tuple, List, Set, Any
+from typing import Any, Dict, Optional, Set, Tuple
 
 import numpy as np
 
@@ -34,19 +34,31 @@ class TreeNode:
         return self.parent is None
 
     def expand(
-        self,
-        action_priors: List[Tuple[Any, float]],
-        legal_moves: List[Any],
-        debug: bool = False,
-    ) -> None:
+        self, action_priors, legal_moves, debug=False, prior_exponent_beta: float = 1.0
+    ):
         legal_moves_set = set(legal_moves)
-        for action, prob in action_priors:
-            if action in legal_moves_set and action not in self.children:
+
+        # Build a dict of priors for legal moves only
+        p = {a: prob for a, prob in action_priors if a in legal_moves_set}
+        if not p:
+            return  # nothing to expand
+
+        # β-sharpening over legal
+        if prior_exponent_beta != 1.0:
+            # raise and renormalize over LEGAL only
+            arr = np.array(list(p.values()), dtype=np.float32)
+            arr = np.power(arr, prior_exponent_beta)
+            s = float(arr.sum())
+            if s > 0:
+                arr /= s
+            for (k, _), v in zip(p.items(), arr):
+                p[k] = float(v)
+
+        # create children with (possibly) sharpened P
+        for action, prob in p.items():
+            if action not in self.children:
                 self.children[action] = TreeNode(
-                    parent=self,
-                    prior=prob,
-                    action_taken=action,
-                    use_rave=self.use_rave,  # Propagate toggle
+                    parent=self, prior=prob, action_taken=action, use_rave=self.use_rave
                 )
             elif debug and action not in legal_moves_set:
                 print(f"[DEBUG] Ignored invalid expansion action: {action}")

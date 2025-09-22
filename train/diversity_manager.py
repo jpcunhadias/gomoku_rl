@@ -2,11 +2,13 @@ import random
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import torch
+
 from train.bucketer import BucketKey, bucket_key
 
 # Type alias: a training tuple and its metadata (move_number, z)
-Sample = Tuple  # (state_tensor, pi_tensor, z)
-Meta = Tuple[int, float]  # (move_number, z)
+Sample = Tuple[torch.Tensor, torch.Tensor, float]  # (state, pi, z)
+Meta = Tuple[int, int, float]  # (local_idx, move_no, z_scalar)
 
 
 class DiversityManager:
@@ -49,33 +51,36 @@ class DiversityManager:
         return targets
 
     def admit_batch(
-        self, samples: Iterable[Sample], metas: Iterable[Meta]
-    ) -> List[Sample]:
+        self,
+        samples: Iterable[Sample],
+        metas: Iterable[Meta],
+    ) -> Tuple[List[Sample], List[Meta]]:
         """
-        Decide which samples to admit.
-        If a bucket is below target → admit.
-        If at/above target → admit with small prob (reservoir trick).
+        Admit samples by bucket (move_no, z_scalar).
+        Meta is (local_idx, move_no, z_scalar) so the caller can mark exactly which
+        per-move logs were accepted.
         """
-        accepted: List[Sample] = []
-        for (s, m, z), (move_no, z_meta) in zip(samples, metas):
-            assert float(z) == float(z_meta), "z mismatch between sample and meta"
-            key = bucket_key(move_no, float(z))
+        accepted_samples: List[Sample] = []
+        accepted_metas: List[Meta] = []
+
+        for (s, m, z), (i, move_no, z_meta) in zip(samples, metas):
+            key = bucket_key(int(move_no), float(z_meta))
             tgt = self.target_quota.get(key, 0)
             cur = self.counts[key]
 
             if cur < tgt:
                 self.counts[key] += 1
-                accepted.append((s, m, z))
+                accepted_samples.append((s, m, z))
+                accepted_metas.append((i, move_no, z_meta))
             else:
-                # small admission probability keeps a trickle of freshness
-                # scale ~ 1 / (10 * bucket_target) to be conservative
-                p = 1.0 / max(10 * (tgt if tgt > 0 else 1), 1)
+                denom = max(10 * tgt, 1)
+                p = 1.0 / denom
                 if self.rng.random() < p:
-                    # accept and conceptually "replace" one from the bucket
                     self.counts[key] += 1
-                    accepted.append((s, m, z))
-                # else reject
-        return accepted
+                    accepted_samples.append((s, m, z))
+                    accepted_metas.append((i, move_no, z_meta))
+
+        return accepted_samples, accepted_metas
 
     def snapshot_counts(self) -> Dict[BucketKey, int]:
         return dict(self.counts)
