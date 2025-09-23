@@ -98,15 +98,15 @@ class SelfPlayRunner:
             else:
                 current_player.mcts.n_simulations = budget
 
-            if hasattr(current_player.mcts, "c_puct"):
-                if move_number < getattr(self.config, "c_puct_cutoff_plies", 0):
-                    current_player.mcts.c_puct = getattr(
-                        self.config,
-                        "c_puct_early",
-                        self.config.c_puct,  # type: ignore
-                    )
-                else:
-                    current_player.mcts.c_puct = self.config.c_puct  # type: ignore
+            # if hasattr(current_player.mcts, "c_puct"):
+            #     if move_number < getattr(self.config, "c_puct_cutoff_plies", 0):
+            #         current_player.mcts.c_puct = getattr(
+            #             self.config,
+            #             "c_puct_early",
+            #             self.config.c_puct,  # type: ignore
+            #         )
+            #     else:
+            #         current_player.mcts.c_puct = self.config.c_puct  # type: ignore
 
             if move_number < self.tau_cutoff_plies:
                 logging.info(
@@ -155,6 +155,7 @@ class SelfPlayRunner:
             ):
                 alpha_eff = current_player.get_dirichlet_alpha(board)
 
+            root_cs = getattr(current_player.mcts, "last_depth_cs", [])
             rec = SampleV2(
                 state=state_tensor,
                 pi_mcts=pi,
@@ -163,7 +164,9 @@ class SelfPlayRunner:
                 move_number=move_number,
                 sims=getattr(current_player.mcts, "n_simulations", -1),
                 tau=getattr(current_player, "temperature", 1.0),
-                c_puct=getattr(current_player.mcts, "c_puct", 1.5),
+                c_puct=float(root_cs[0])
+                if root_cs
+                else getattr(current_player.mcts, "c_puct", 1.5),
                 dirichlet_alpha=alpha_eff if alpha_eff is not None else 0.0,
                 dirichlet_eps=getattr(current_player, "dirichlet_epsilon", 0.25),
                 entropy_pi_mcts=h_mcts,
@@ -194,23 +197,40 @@ class SelfPlayRunner:
                 # top-5 mass on the flattened π grid (diagnostic only)
                 topk = torch.topk(pi.view(-1), k=min(5, pi.numel())).values.sum().item()
                 # pull visit-count stats from MCTS
-                stats = None
-                if hasattr(current_player.mcts, "root_visit_stats"):
-                    stats = current_player.mcts.root_visit_stats()
+                stats = current_player.mcts.root_visit_stats() or {}
+
+                sched = getattr(current_player.mcts, "last_depth_cs", [])
+                root_c = (
+                    f"{sched[0]:.2f}"
+                    if len(sched) > 0
+                    else f"{current_player.mcts.c_puct:.2f}"
+                )
 
                 msg = (
                     f"[dbg] ply={move_number} "
                     f"τ={getattr(current_player, 'temperature', None)} "
-                    f"c_puct={getattr(current_player.mcts, 'c_puct', None)} "
+                    f"c_root={root_c} "
                     f"Hmcts={float(h_mcts):.3f} "
                     f"top5_mass={topk:.3f}"
                 )
                 if stats:
                     msg += (
-                        f" | visits n={stats['n_children']} "
-                        f"min={stats['min']} max={stats['max']} mean={stats['mean']:.1f}"
+                        f" | visits n={stats.get('n_children', 0)} "
+                        f"min={stats.get('min', 0)} max={stats.get('max', 0)} "
+                        f"mean={stats.get('mean', 0):.1f}"
                     )
-                logging.debug(msg)
+
+                if sched:
+                    # print first three schedule values if present
+                    vals = [f"{c:.2f}" for c in sched[:3]]
+                    print(
+                        f"[c_puct sched] ply={move_number} "
+                        + " ".join(f"c@d{i}={val}" for i, val in enumerate(vals))
+                    )
+
+                print(
+                    msg
+                )  # use print instead of logging.debug so it shows at INFO level)
 
             # capture opening-5 key (after applying the 5th move, i.e., move_number == 4)
             # You already compute `canon_hash` for the current state BEFORE move applied,
@@ -333,6 +353,7 @@ def create_players(
         "c_puct": config.c_puct,
         "n_simulations": n_simulations,
         "use_rave": config.use_rave,
+        "c_puct_schedule": getattr(config, "c_puct_schedule", {"enabled": False}),
     }
 
     player1 = MCTSPlayer(MCTS(**mcts_kwargs), **player_kwargs)

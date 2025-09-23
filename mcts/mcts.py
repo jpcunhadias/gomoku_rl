@@ -1,5 +1,5 @@
 import random
-from typing import Any, Callable, Dict, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -15,6 +15,7 @@ class MCTS:
         c_puct: float = 1.0,
         n_simulations: int = 800,
         use_rave: bool = True,
+        c_puct_schedule: Optional[dict] = None,
     ) -> None:
         """
         Args:
@@ -30,6 +31,8 @@ class MCTS:
         self.root = TreeNode(use_rave=use_rave)
         self.last_root_visit_counts: Union[Dict[Any, int], None] = None
         self._root_noise_applied = False
+        self.c_puct_schedule = c_puct_schedule or {"enabled": False}
+        self.last_depth_cs = None
 
     def update_with_move(self, move: Any) -> None:
         """Reuse the subtree rooted at ``move`` if it exists."""
@@ -55,6 +58,8 @@ class MCTS:
             for action in illegal_children:
                 del node.children[action]
 
+        depth = 0
+        depth_cs: List[float] = []
         while not node.is_leaf():
             legal_moves_set = set(state.get_legal_moves())
             for action in list(node.children):
@@ -64,8 +69,14 @@ class MCTS:
             if node.is_leaf():
                 break
 
+            c_here = (
+                self._c_puct_at_depth(depth)
+                if hasattr(self, "c_puct_schedule")
+                else self.c_puct
+            )
+            depth_cs.append(c_here)
             action, node = node.select_child(
-                c_puct=self.c_puct,
+                c_puct=c_here,
                 k_rave=300.0,
             )
 
@@ -84,6 +95,8 @@ class MCTS:
             state.apply_move(row, col)
             visited_moves.add((row, col))
 
+            depth += 1
+
         if state.is_terminal():
             value = state.evaluate_terminal()
         else:
@@ -95,6 +108,7 @@ class MCTS:
             )
 
         node.backpropagate(value, visited_moves)
+        self.last_depth_cs = depth_cs
 
     def apply_root_dirichlet(self, epsilon: float, alpha: float) -> None:
         """Mix Dir(α) into current root's priors: P <- (1-ε)P + ε·Dir(α)."""
@@ -142,6 +156,7 @@ class MCTS:
         self.root = TreeNode(use_rave=self.use_rave)
         self.last_root_visit_counts = None
         self._root_noise_applied = False
+        self.last_depth_cs = []
 
     def _normalize_counts(
         self, counts: Dict[Any, int], temp: float
@@ -175,3 +190,12 @@ class MCTS:
             "max": int(max(vc)),
             "mean": float(sum(vc) / len(vc)),
         }
+
+    def _c_puct_at_depth(self, depth: int) -> float:
+        sch = getattr(self, "c_puct_schedule", {"enabled": False})
+        if not sch.get("enabled", False):
+            return self.c_puct
+        c0 = float(sch.get("c0", 3.0))
+        lam = float(sch.get("lambda_", 0.06))
+        cmin = float(sch.get("c_min", 1.0))
+        return c0 * np.exp(-lam * depth) + cmin
