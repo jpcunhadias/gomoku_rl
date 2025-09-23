@@ -74,11 +74,11 @@ clean:
 all: lint-fix format
 
 reset:
-	python scripts/reset_value_head.py \
+	python scripts/legacy/reset_value_head.py \
   --ckpt_in checkpoints/policy_value_net_best.pth \
   --ckpt_out checkpoints/policy_value_net_reset_value.pth
 
 micro_train:
-	python scripts/micro_train_value_stabilize_v3.py
+	python scripts/legacy/micro_train_value_stabilize_v3.py
 
 
