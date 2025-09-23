@@ -21,7 +21,7 @@ STEPS = 200
 BASE_LR = 1e-3
 GRAD_CLIP = 1.0
 
-CKPT = "checkpoints/policy_value_net_after_micro_v3.pth"
+CKPT = "checkpoints/policy_value_net_best.pth"
 BUFFER = "checkpoints/replay_buffer.pkl"
 
 
