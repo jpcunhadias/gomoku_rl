@@ -1,10 +1,14 @@
 import pytest
+
 from game.player import MCTSPlayer
-from mcts.mcts import MCTS
 from mcts.evaluators import NeuralEvaluator
+from mcts.mcts import MCTS
 from model.policy_value_net import PolicyValueNet
+from train.config import get_config
 from train.replay_buffer import ReplayBuffer
 from train.self_play import SelfPlayRunner
+
+config = get_config()
 
 
 def test_self_play_game_populates_buffer():
@@ -25,8 +29,8 @@ def test_self_play_game_populates_buffer():
         player1=mcts_player1,
         player2=mcts_player2,
         buffer=buffer,
-        temperature_schedule=lambda move: 1.0 if move < 10 else 1e-3,
         verbose=False,
+        config=config,
     )
 
     runner.play_game()
