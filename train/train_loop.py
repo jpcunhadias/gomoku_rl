@@ -1,5 +1,6 @@
 import os
-from typing import Any, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -33,6 +34,7 @@ class AlphaZeroTrainer:
         config: Any,
         device: str = "cpu",
         best_value_loss: float = float("inf"),
+        save_paths: Optional[Dict[str, Path]] = None,
     ) -> None:
         """
         AlphaZero training loop for Gomoku.
@@ -52,6 +54,10 @@ class AlphaZeroTrainer:
         self.epochs = config.epochs
         self.steps_per_epoch = config.steps_per_epoch
         self.save_path = config.save_path
+        self.save_paths = save_paths if save_paths else {}
+        self.sidecar_jsonl = str(
+            self.save_paths.get("sp_log", "checkpoints/selfplay/selfplay_v2.jsonl")
+        )
 
         self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
         self.value_loss_fn = nn.SmoothL1Loss(beta=1.0)
@@ -77,7 +83,7 @@ class AlphaZeroTrainer:
             from train.stratified_sampler import TARGET_MIX, StratifiedBatchSampler
 
             self.sampler = StratifiedBatchSampler(
-                sidecar_jsonl="checkpoints/selfplay_v2.jsonl",
+                sidecar_jsonl=self.sidecar_jsonl,
                 buffer_len_fn=lambda: len(self.replay_buffer),
                 target_mix=TARGET_MIX,
                 refresh_every=max(1, self.steps_per_epoch // 2),
@@ -289,6 +295,8 @@ class AlphaZeroTrainer:
                     f"Best model updated (value loss = {avg_v_loss:.4f}) → saved as best"
                 )
 
+            self.save_checkpoint(epoch=epoch, label="latest")
+
             self.writer.add_scalar("Loss/Policy", avg_p_loss, epoch)
             self.writer.add_scalar("Loss/Value", avg_v_loss, epoch)
 
@@ -324,24 +332,43 @@ class AlphaZeroTrainer:
     def save_checkpoint(
         self, epoch: int, label: str = "latest", best_value_loss: Optional[float] = None
     ):
-        checkpoint = {
+        ckpt = {
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "epoch": epoch,
         }
         if best_value_loss is not None:
-            checkpoint["best_value_loss"] = best_value_loss
+            ckpt["best_value_loss"] = best_value_loss
 
-        torch.save(checkpoint, f"checkpoints/policy_value_net_{label}.pth")
+        # Always write a rolling "last"
+        last_path = self.save_paths.get(
+            "model_last", "checkpoints/policy_value_net_last.pth"
+        )
+        torch.save(ckpt, last_path)
+
+        # If it's a "best" event, also write best
+        if label == "best":
+            best_path = self.save_paths.get(
+                "model_best", "checkpoints/policy_value_net_best.pth"
+            )
+            torch.save(ckpt, best_path)
 
 
 def run_training(
-    model: PolicyValueNet, optimizer: optim.Optimizer, buffer: ReplayBuffer, config: Any
-) -> None:
-    """Utility to create a trainer and start training."""
+    model: PolicyValueNet,
+    optimizer: optim.Optimizer,
+    buffer: ReplayBuffer,
+    config: Any,
+    best_value_loss: float = float("inf"),
+    debug: bool = False,
+    save_paths: Optional[Dict[str, Path]] = None,
+) -> Tuple[Optional[int], float]:
+    """Utility to create a  and start training."""
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    trainer = AlphaZeroTrainer(model, optimizer, buffer, config, device)
-    trainer.train()
+    trainer = AlphaZeroTrainer(
+        model, optimizer, buffer, config, device, best_value_loss, save_paths=save_paths
+    )
+    return trainer.train(debug=debug)

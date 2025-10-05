@@ -1,5 +1,7 @@
+import json
 import logging
 import os
+import time
 from types import SimpleNamespace
 from typing import Any, Callable, List, Optional, Tuple
 
@@ -20,6 +22,7 @@ from train.diversity_manager import DiversityManager
 from train.replay_buffer import ReplayBuffer
 from train.sample_logger import SampleLogger
 from train.schema import SampleV2
+from utils.paths import cycle_paths, save_config, save_meta
 
 # Configure logging
 logging.basicConfig(
@@ -44,13 +47,16 @@ class SelfPlayRunner:
         verbose: bool = False,
         diversity_manager: Optional[DiversityManager] = None,
         config: Optional[SimpleNamespace] = None,
+        logger_path: Optional[str] = None,
     ) -> None:
         self.player1 = player1
         self.player2 = player2
         self.buffer = buffer
         self.augment_fn = augment_fn
         self.verbose = verbose
-        self.logger = SampleLogger("checkpoints/selfplay_v2.jsonl")
+        self.logger = SampleLogger(
+            logger_path or "checkpoints/selfplay/selfplay_v2.jsonl"
+        )
         self.div_manager = diversity_manager
         self.config = config
 
@@ -371,6 +377,11 @@ def run_selfplay_pipeline(
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logging.info(f"Using device: {device}")
 
+    cycle = int(getattr(config, "cycle", 1))
+    paths = cycle_paths(cycle)
+    save_config(config, paths["config"])
+    t0 = time.time()
+
     checkpoint_path = (
         "checkpoints/policy_value_net_best.pth" if load_checkpoint else None
     )
@@ -400,6 +411,7 @@ def run_selfplay_pipeline(
         verbose=False,
         diversity_manager=diversity_manager,
         config=config,
+        logger_path=str(paths["sp_log"]),
     )
 
     len_before = len(buffer)
@@ -411,6 +423,8 @@ def run_selfplay_pipeline(
         f"[DEBUG] before={len_before}  added≈{added_total}  after={len_after}  delta={len_after - len_before}"
     )
     logging.info(f"Buffer filled with {len(buffer)} samples.")
+    t1 = time.time()
+    logging.info(f"Self-play of {config.num_self_play_games} games took {t1 - t0:.1f}s")
 
     counts = diversity_manager.snapshot_counts()
     logging.info(f"Diversity manager snapshot counts: {counts}")
@@ -420,5 +434,43 @@ def run_selfplay_pipeline(
         os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
         buffer.save(buffer_save_path)
         logging.info(f"Replay buffer saved to {buffer_save_path}")
+
+    buffer.save(str(paths["buffer"]))
+    logging.info(f"[cycle] Replay buffer snapshot → {paths['buffer']}")
+
+    # --- Save concise per-cycle summary ---
+    sp_summary = {
+        "games": config.num_self_play_games,
+        "sim_budget": getattr(config, "sim_budget", None),
+        "phase_cutoffs": getattr(config, "phase_cutoffs", None),
+        "tau": dict(
+            tau_cutoff_plies=getattr(config, "tau_cutoff_plies", None),
+            tau_early=getattr(config, "tau_early", None),
+        ),
+        "dirichlet": dict(
+            enabled=getattr(config, "add_dirichlet_noise", False),
+            epsilon=getattr(config, "dirichlet_epsilon", None),
+            alpha_mode=getattr(config, "dirichlet_alpha_mode", None),
+            conc=getattr(config, "dirichlet_concentration", None),
+            a_min=getattr(config, "dirichlet_alpha_min", None),
+            a_max=getattr(config, "dirichlet_alpha_max", None),
+        ),
+        "c_puct_schedule": getattr(config, "c_puct_schedule", {"enabled": False}),
+    }
+
+    with open(paths["sp_summary"], "w") as f:
+        json.dump(sp_summary, f, indent=2)
+    logging.info(f"[cycle] Self-play summary → {paths['sp_summary']}")
+
+    # --- Save meta record ---
+    meta = save_meta(
+        cycle=cycle,
+        seed=getattr(config, "seed", 42),
+        notes="self-play run",
+        extra={"elapsed_sec": time.time() - t0},
+    )
+    with open(paths["meta"], "w") as f:
+        json.dump(meta, f, indent=2)
+    logging.info(f"[cycle] Meta → {paths['meta']}")
 
     return model, buffer

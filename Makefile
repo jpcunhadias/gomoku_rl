@@ -2,7 +2,7 @@
 # Run `make help` to see available commands
 
 .PHONY: help lint lint-fix format format-ruff format-black format-all clean all \
-        self-play train debug analyze_buffer eval reset micro_train
+        self-play train debug analyze_buffer eval reset micro_train arena
 
 # Set PYTHONPATH to current directory (project root)
 export PYTHONPATH := $(shell pwd)
@@ -12,6 +12,9 @@ help:
 	@echo "Available commands:"
 	@echo "  self-play       - Run self-play script"
 	@echo "  train           - Run training loop"
+	@echo "  reset           - Reset value head of a checkpoint"
+	@echo "  micro_train     - Run micro training for value stabilization"
+	@echo "  arena           - Run arena to compare two models"
 	@echo "  eval            - Evaluate model vs. pure MCTS"
 	@echo "  debug           - Run debug script for value inspection"
 	@echo "  analyze_buffer  - Analyze buffer contents"
@@ -81,4 +84,10 @@ reset:
 micro_train:
 	python scripts/legacy/micro_train_value_stabilize_v3.py
 
-
+arena:
+	python scripts/arena.py \
+  --baseline  checkpoints/policy_value_net_best.pth \
+  --candidate checkpoints/policy_value_net_best.pth \
+  --games 200 --sims 1200 \
+  --schedule_c0 1.5 --schedule_lambda 0.60 --schedule_cmin 1.0 \
+  --out checkpoints/arena_c1_vs_b.json
