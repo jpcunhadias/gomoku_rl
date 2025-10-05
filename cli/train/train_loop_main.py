@@ -1,32 +1,43 @@
+import argparse
 import os
+import time
 
 import torch
 
 from model.policy_value_net import PolicyValueNet
 from train.config import get_config
 from train.replay_buffer import ReplayBuffer
-from train.train_loop import AlphaZeroTrainer
-
-# Load configuration
-config = get_config()
+from train.train_loop import run_training
+from utils.paths import cycle_paths, save_config, save_json, save_meta
 
 
 def main() -> None:
-    """Entry point for running the full AlphaZero training loop."""
-    print("Starting AlphaZero training loop")
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--cycle", type=int, required=True, help="Experiment cycle id (int)", default=1
+    )
+    args = ap.parse_args()
 
-    # Select device
+    cfg = get_config()
+    paths = cycle_paths(args.cycle)
+
+    print("Starting AlphaZero training loop")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    checkpoint_path = "checkpoints/policy_value_net_best.pth"
-    buffer_path = "checkpoints/replay_buffer.pkl"
+    # --- persist config & meta stub up-front
+    save_config(cfg, paths["config"])
+    meta = save_meta(
+        cycle=args.cycle, seed=getattr(cfg, "seed", 42), notes="train loop start"
+    )
+    save_json(meta, paths["meta"])
 
-    # === Initialize model ===
+    # === Initialize model & optimizer ===
     model = PolicyValueNet(board_size=8)
     model._init_weights()
     model.to(device)
-    # Collect value-head parameters
+
+    # split value vs policy params (as you had)
     value_params = list(model.value_conv.parameters()) + list(
         model.value_fc.parameters()
     )
@@ -35,48 +46,65 @@ def main() -> None:
 
     optimizer = torch.optim.Adam(
         [
-            {"params": policy_params, "lr": config.learning_rate},
+            {"params": policy_params, "lr": cfg.learning_rate},
             {
                 "params": value_params,
-                "lr": config.learning_rate * 0.3,
+                "lr": cfg.learning_rate * 0.3,
                 "weight_decay": 2e-4,
             },
         ]
     )
-    best_value_loss = float("inf")
-    # === Load checkpoint if it exists ===
-    if os.path.exists(checkpoint_path):
-        print(f"Loading checkpoint from: {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path, map_location=device)
 
-        model.load_state_dict(checkpoint["model_state_dict"])
-        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        best_value_loss = checkpoint.get("best_value_loss", float("inf"))
-        print(f"Loaded model from epoch: {checkpoint.get('epoch', '?')}")
-    else:
-        print("No checkpoint found. Initializing new model.")
-
-    # === Load replay buffer ===
+    # === Load buffer (cycle-aware) ===
+    buffer_path = str(paths["buffer"])
     if os.path.exists(buffer_path):
         replay_buffer = ReplayBuffer.load(buffer_path)
-        print(f"Loaded buffer with {len(replay_buffer)} samples")
+        print(f"Loaded buffer with {len(replay_buffer)} samples from {buffer_path}")
     else:
-        raise FileNotFoundError(
-            f"No replay buffer found at {buffer_path}. Cannot start training without data."
-        )
+        raise FileNotFoundError(f"No replay buffer at {buffer_path}")
 
-    # === Initialize trainer ===
-    trainer = AlphaZeroTrainer(
+    # === Optional warm start from previous best (same cycle) ===
+    best_value_loss = float("inf")
+    if os.path.exists(paths["model_best"]):
+        print(f"Loading checkpoint from: {paths['model_best']}")
+        checkpoint = torch.load(paths["model_best"], map_location=device)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        if "optimizer_state_dict" in checkpoint:
+            optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        best_value_loss = checkpoint.get("best_value_loss", float("inf"))
+
+    # === Train ===
+    t0 = time.time()
+    best_epoch, best_val = run_training(
         model=model,
         optimizer=optimizer,
-        replay_buffer=replay_buffer,
-        config=config,
-        device=device,
+        buffer=replay_buffer,
+        config=cfg,
         best_value_loss=best_value_loss,
+        debug=False,
+        save_paths=paths,
     )
+    t1 = time.time()
 
-    # === Start training ===
-    trainer.train()
+    # --- tiny summary + meta update
+    tiny_summary = {
+        "cycle": args.cycle,
+        "best_epoch": best_epoch,
+        "best_value_loss": best_val,
+        "elapsed_sec": t1 - t0,
+        "model_best": str(paths["model_best"]),
+        "model_last": str(paths["model_last"]),
+        "buffer": str(paths["buffer"]),
+    }
+    save_json(tiny_summary, paths["diag_smoke"])  # reuse diag_smoke for the summary
+
+    meta_end = save_meta(
+        cycle=args.cycle,
+        seed=getattr(cfg, "seed", 42),
+        notes="train loop end",
+        extra={"elapsed_sec": t1 - t0},
+    )
+    save_json(meta_end, paths["meta"])
 
 
 if __name__ == "__main__":
