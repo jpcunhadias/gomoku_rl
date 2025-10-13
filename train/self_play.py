@@ -308,9 +308,27 @@ class SelfPlayRunner:
         return "late"
 
     def _tau_for_move(self, move_number: int) -> float:
+        """Return temperature for the given move number.
+
+        Uses per-ply temperatures from tau_early_plies if available,
+        otherwise falls back to tau_early for moves < tau_cutoff_plies.
+        """
         cutoff = self.tau_cutoff_plies
-        tau_early = getattr(self.config, "tau_early", 0.5) if self.config else 0.5
-        return tau_early if move_number < cutoff else 0.0
+
+        # Check for per-ply temperature mapping
+        tau_early_plies = (
+            getattr(self.config, "tau_early_plies", None) if self.config else None
+        )
+
+        if tau_early_plies and move_number in tau_early_plies:
+            return float(tau_early_plies[move_number])
+
+        # Fallback to original behavior
+        if move_number < cutoff:
+            tau_early = getattr(self.config, "tau_early", 0.5) if self.config else 0.5
+            return tau_early
+
+        return 0.0
 
     def _sims_for_move(self, move_number: int) -> int:
         budget = getattr(self, "sim_budget", {"early": 300, "mid": 200, "late": 120})
@@ -349,6 +367,7 @@ def create_players(
         ),
         "dirichlet_alpha_fixed": getattr(config, "dirichlet_alpha_fixed", 0.15),
         "dirichlet_epsilon": getattr(config, "dirichlet_epsilon", 0.25),
+        "dirichlet_epsilon_root": getattr(config, "dirichlet_epsilon_root", 0.30),
         "dirichlet_alpha_min": getattr(config, "dirichlet_alpha_min", 0.02),
         "dirichlet_alpha_max": getattr(config, "dirichlet_alpha_max", 0.50),
         "dirichlet_concentration": getattr(config, "dirichlet_concentration", 10.0),

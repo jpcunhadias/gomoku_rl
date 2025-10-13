@@ -75,6 +75,7 @@ class MCTSPlayer:
         dirichlet_alpha_mode: DirichletAlphaMode = DirichletAlphaMode.AUTO,
         dirichlet_alpha_fixed: float = 0.15,  # used if mode == FIXED
         dirichlet_epsilon: float = 0.25,
+        dirichlet_epsilon_root: float = 0.30,  # separate epsilon for root (move_number==0)
         name: str = "MCTSPlayer",
         dirichlet_alpha_min: float = 0.02,
         dirichlet_alpha_max: float = 0.50,
@@ -87,6 +88,7 @@ class MCTSPlayer:
         self.dirichlet_alpha_mode = dirichlet_alpha_mode
         self.dirichlet_alpha_fixed = float(dirichlet_alpha_fixed)
         self.dirichlet_epsilon = float(dirichlet_epsilon)
+        self.dirichlet_epsilon_root = float(dirichlet_epsilon_root)
         self.dirichlet_alpha_min = float(dirichlet_alpha_min)
         self.dirichlet_alpha_max = float(dirichlet_alpha_max)
         self.dirichlet_concentration = float(dirichlet_concentration)
@@ -117,7 +119,13 @@ class MCTSPlayer:
         root_noise_tuple = None
         if self.add_dirichlet_noise and root_noise:
             alpha_eff = self.get_dirichlet_alpha(board)
-            root_noise_tuple = (self.dirichlet_epsilon, alpha_eff)
+            # Use dirichlet_epsilon_root for move_number==0, else dirichlet_epsilon
+            epsilon = (
+                self.dirichlet_epsilon_root
+                if self.move_number == 0
+                else self.dirichlet_epsilon
+            )
+            root_noise_tuple = (epsilon, alpha_eff)
 
         action_probs = self.mcts.get_action_probs(
             board, temp=self.temperature, root_noise=root_noise_tuple

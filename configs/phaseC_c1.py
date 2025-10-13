@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 def get_config() -> SimpleNamespace:
     return SimpleNamespace(
-        num_self_play_games=100,
+        num_self_play_games=200,
         self_play_num_simulations=800,
         batch_size=128,
         learning_rate=1e-3,
@@ -27,14 +27,20 @@ def get_config() -> SimpleNamespace:
         report_sampler_mix=False,
         # --- Phase B knobs (tighter) ---
         tau_cutoff_plies=3,  # τ applies to plies 0..2 (your code uses < cutoff)
-        tau_early=0.08,  # from 0.0 → 0.25
+        tau_early=0.15,  # fallback if tau_early_plies not used
+        tau_early_plies={
+            0: 0.45,
+            1: 0.12,
+            2: 0.08,
+        },  # per-ply temperature for plies 0-2
         add_dirichlet_noise=True,
-        dirichlet_epsilon=0.05,  # less root noise mass
+        dirichlet_epsilon=0.03,  # non-root noise
+        dirichlet_epsilon_root=0.30,  # root-only noise (move_number==0)
         dirichlet_alpha_mode="auto",  # α ≈ concentration / #legal (clipped)
         dirichlet_alpha_fixed=0.15,  # unused in AUTO
         dirichlet_alpha_min=0.01,  # allow smaller α
-        dirichlet_alpha_max=0.03,  # tighter cap
-        dirichlet_concentration=3.0,  # from 10 → 6 reduces α overall
+        dirichlet_alpha_max=0.06,  # flatter noise for early positions
+        dirichlet_concentration=5.0,  # helps fight super-peaky prior at center
         # simulation budget shaping
         sim_budget={
             "early": 750,
@@ -45,12 +51,12 @@ def get_config() -> SimpleNamespace:
         phase_cutoffs={"early": 12, "mid": 28},
         # default MCTSPlayer temp (overridden per-move by τ schedule anyway)
         temperature=0.2,
-        # Phase C – c_puct schedule
+        # Phase C – c_puct schedule (gentler, slower-decay)
         c_puct_schedule=dict(
             enabled=True,
-            c0=1.5,  # boost inicial de exploração
-            lambda_=0.60,  # decaimento por ply
-            c_min=1.0,  # piso
+            c0=2.5,  # higher initial boost → root ≈ 4.0 (c_puct + c0)
+            lambda_=0.10,  # slow decay per depth level
+            c_min=1.0,  # floor value
         ),
         cycle=1,
     )

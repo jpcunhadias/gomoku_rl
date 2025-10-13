@@ -15,3 +15,7 @@ models/
 
 # Ignore debug_related files
 debug/debug_outputs/
+
+.gemini
+.geminiignore
+GEMINI.md

@@ -81,7 +81,7 @@ def main() -> None:
         buffer=replay_buffer,
         config=cfg,
         best_value_loss=best_value_loss,
-        debug=False,
+        debug=True,
         save_paths=paths,
     )
     t1 = time.time()
