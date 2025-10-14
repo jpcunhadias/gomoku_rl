@@ -15,7 +15,6 @@ def main() -> None:
         model, buffer = run_selfplay_pipeline(
             config=config,
             load_checkpoint=True,  # Always load the latest policy
-            buffer_save_path="checkpoints/replay_buffer.pkl",
         )
 
         print("[Self-Play] Batch finished, sleeping for a while...")

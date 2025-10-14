@@ -388,9 +388,7 @@ def create_players(
 
 
 def run_selfplay_pipeline(
-    config: Any,
-    load_checkpoint: bool = False,
-    buffer_save_path: Optional[str] = None,
+    config: Any, load_checkpoint: bool = False
 ) -> Tuple[PolicyValueNet, ReplayBuffer]:
     """Run a full self-play pipeline."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -398,25 +396,45 @@ def run_selfplay_pipeline(
 
     cycle = int(getattr(config, "cycle", 1))
     paths = cycle_paths(cycle)
+    prev_paths = cycle_paths(cycle - 1)
     save_config(config, paths["config"])
     t0 = time.time()
 
-    checkpoint_path = (
-        "checkpoints/policy_value_net_best.pth" if load_checkpoint else None
-    )
-    model = initialize_model(device, checkpoint_path)
+    ckpt = None
+    if os.path.exists(paths["model_last"]):
+        ckpt = str(paths["model_last"])
+    elif os.path.exists(prev_paths["model_last"]):
+        ckpt = str(prev_paths["model_last"])
+    elif os.path.exists(prev_paths["model_best"]):
+        ckpt = str(prev_paths["model_best"])
+
+    model = initialize_model(device, ckpt)
 
     evaluator = NeuralEvaluator(model, device)
     player1, player2 = create_players(
         evaluator, n_simulations=config.self_play_num_simulations, config=config
     )
 
-    if buffer_save_path and os.path.exists(buffer_save_path):
-        logging.info(f"Loading existing replay buffer from {buffer_save_path}")
-        buffer = ReplayBuffer.load(buffer_save_path)
+    buf_path = str(paths["buffer"])
+    if os.path.exists(buf_path):
+        logging.info(f"Loading existing replay buffer from {buf_path}")
+        buffer = ReplayBuffer.load(buf_path)
     else:
-        logging.info("No existing buffer found. Initializing new ReplayBuffer.")
-        buffer = ReplayBuffer(max_size=config.replay_buffer_size)
+        logging.info("No existing buffer found. Checking for previous cycle buffer.")
+        prev_buf_path = str(prev_paths["buffer"])
+        if os.path.exists(prev_buf_path):
+            logging.info(
+                f"Seeding new buffer from previous cycle buffer: {prev_buf_path}"
+            )
+            prev = ReplayBuffer.load(prev_buf_path)
+            tail_n = min(30000, len(prev))  # pick a tail window
+            buffer = ReplayBuffer(max_size=config.replay_buffer_size)
+            buffer.add(prev.buffer[-tail_n:])  # seed
+        else:
+            logging.info(
+                "No previous cycle buffer found. Initializing new ReplayBuffer."
+            )
+            buffer = ReplayBuffer(max_size=config.replay_buffer_size)
 
     diversity_manager = DiversityManager(
         DiversityManager.default_targets(window_size=config.replay_buffer_size)
@@ -448,11 +466,6 @@ def run_selfplay_pipeline(
     counts = diversity_manager.snapshot_counts()
     logging.info(f"Diversity manager snapshot counts: {counts}")
     logging.debug(counts)
-
-    if buffer_save_path:
-        os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
-        buffer.save(buffer_save_path)
-        logging.info(f"Replay buffer saved to {buffer_save_path}")
 
     buffer.save(str(paths["buffer"]))
     logging.info(f"[cycle] Replay buffer snapshot → {paths['buffer']}")

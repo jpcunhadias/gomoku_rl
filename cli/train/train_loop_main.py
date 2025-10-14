@@ -37,7 +37,6 @@ def main() -> None:
     model._init_weights()
     model.to(device)
 
-    # split value vs policy params (as you had)
     value_params = list(model.value_conv.parameters()) + list(
         model.value_fc.parameters()
     )
@@ -63,11 +62,17 @@ def main() -> None:
     else:
         raise FileNotFoundError(f"No replay buffer at {buffer_path}")
 
-    # === Optional warm start from previous best (same cycle) ===
+    # choose resume checkpoint
+    resume_path = None
+    if os.path.exists(paths["model_last"]):
+        resume_path = paths["model_last"]
+    elif os.path.exists(paths["model_best"]):
+        resume_path = paths["model_best"]
+
     best_value_loss = float("inf")
-    if os.path.exists(paths["model_best"]):
-        print(f"Loading checkpoint from: {paths['model_best']}")
-        checkpoint = torch.load(paths["model_best"], map_location=device)
+    if resume_path:
+        print(f"Loading checkpoint from: {resume_path}")
+        checkpoint = torch.load(resume_path, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
         if "optimizer_state_dict" in checkpoint:
             optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
