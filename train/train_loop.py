@@ -53,7 +53,6 @@ class AlphaZeroTrainer:
         self.batch_size = config.batch_size
         self.epochs = config.epochs
         self.steps_per_epoch = config.steps_per_epoch
-        self.save_path = config.save_path
         self.save_paths = save_paths if save_paths else {}
         self.sidecar_jsonl = str(
             self.save_paths.get("sp_log", "checkpoints/selfplay/selfplay_v2.jsonl")
@@ -285,6 +284,7 @@ class AlphaZeroTrainer:
                             )
                     print(f"[Sampler] L1 gap (fractions): {l1_gap:.3f}\n")
 
+            self.save_checkpoint(epoch=epoch, label="latest")
             if avg_v_loss < self.best_value_loss:
                 self.best_value_loss = avg_v_loss
                 self.best_epoch = epoch
@@ -294,8 +294,6 @@ class AlphaZeroTrainer:
                 print(
                     f"Best model updated (value loss = {avg_v_loss:.4f}) → saved as best"
                 )
-
-            self.save_checkpoint(epoch=epoch, label="latest")
 
             self.writer.add_scalar("Loss/Policy", avg_p_loss, epoch)
             self.writer.add_scalar("Loss/Value", avg_v_loss, epoch)
@@ -340,18 +338,13 @@ class AlphaZeroTrainer:
         if best_value_loss is not None:
             ckpt["best_value_loss"] = best_value_loss
 
-        # Always write a rolling "last"
-        last_path = self.save_paths.get(
-            "model_last", "checkpoints/policy_value_net_last.pth"
-        )
-        torch.save(ckpt, last_path)
-
-        # If it's a "best" event, also write best
-        if label == "best":
-            best_path = self.save_paths.get(
-                "model_best", "checkpoints/policy_value_net_best.pth"
-            )
-            torch.save(ckpt, best_path)
+        if self.save_paths:
+            if label == "best":
+                torch.save(ckpt, str(self.save_paths["model_best"]))
+            else:
+                torch.save(ckpt, str(self.save_paths["model_last"]))
+        else:
+            torch.save(ckpt, f"checkpoints/policy_value_net_{label}.pth")
 
 
 def run_training(
