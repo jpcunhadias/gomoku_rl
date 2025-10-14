@@ -86,8 +86,8 @@ micro_train:
 
 arena:
 	python scripts/arena.py \
-  --baseline  checkpoints/policy_value_net_best.pth \
-  --candidate checkpoints/policy_value_net_best.pth \
-  --games 200 --sims 1200 \
-  --schedule_c0 1.5 --schedule_lambda 0.60 --schedule_cmin 1.0 \
-  --out checkpoints/arena_c1_vs_b.json
+	  --baseline checkpoints/models/c1_cycle2_last.pth \
+	  --candidate checkpoints/models/c1_cycle2_last.pth \
+	  --games 200 --sims 800 \
+	  --schedule_c0 2.5 --schedule_lambda 0.30 --schedule_cmin 1.0 \
+	  --out checkpoints/arena/arena_c2_AB_schedON_vs_OFF.json
