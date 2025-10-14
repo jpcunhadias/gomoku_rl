@@ -7,7 +7,7 @@ def get_config() -> SimpleNamespace:
         self_play_num_simulations=800,
         batch_size=128,
         learning_rate=1e-3,
-        epochs=10,
+        epochs=30,
         steps_per_epoch=50,
         reload_buffer_every=250,
         replay_buffer_size=30000,
@@ -30,8 +30,8 @@ def get_config() -> SimpleNamespace:
         tau_early=0.15,  # fallback if tau_early_plies not used
         tau_early_plies={
             0: 0.45,
-            1: 0.12,
-            2: 0.08,
+            1: 0.30,
+            2: 0.20,
         },  # per-ply temperature for plies 0-2
         add_dirichlet_noise=True,
         dirichlet_epsilon=0.03,  # non-root noise
@@ -55,8 +55,8 @@ def get_config() -> SimpleNamespace:
         c_puct_schedule=dict(
             enabled=True,
             c0=2.5,  # higher initial boost → root ≈ 4.0 (c_puct + c0)
-            lambda_=0.10,  # slow decay per depth level
+            lambda_=0.30,  # slow decay per depth level
             c_min=1.0,  # floor value
         ),
-        cycle=1,
+        cycle=2,
     )
