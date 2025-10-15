@@ -173,10 +173,16 @@ class MCTSPlayer:
         self, action_probs: Dict[Any, float], alpha: float
     ) -> Dict[Any, float]:
         actions = list(action_probs.keys())
-        noise = np.random.dirichlet([alpha] * len(actions))
+        noise = np.random.dirichlet(np.array([alpha] * len(actions)))
         # convex mix keeps sum==1 if inputs sum==1
         return {
             a: (1 - self.dirichlet_epsilon) * action_probs[a]
             + self.dirichlet_epsilon * n
             for a, n in zip(actions, noise)
         }
+
+    def set_arena_params(self, root_eps: float, tau0: float, tau1: float) -> None:
+        """Set arena-specific parameters for stochastic evaluation."""
+        self._arena_root_eps = root_eps
+        self._arena_tau0 = tau0
+        self._arena_tau1 = tau1
