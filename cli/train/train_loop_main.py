@@ -8,7 +8,7 @@ from model.policy_value_net import PolicyValueNet
 from train.config import get_config
 from train.replay_buffer import ReplayBuffer
 from train.train_loop import run_training
-from utils.paths import cycle_paths, save_config, save_json, save_meta
+from utils.paths import cycle_paths, save_config, save_json, save_meta, hash_config
 
 
 def main() -> None:
@@ -30,18 +30,16 @@ def main() -> None:
             ap.add_argument(
                 f"--{key}",
                 action=argparse.BooleanOptionalAction,
-                default=value,
+                default=None, # Default to None to distinguish from user-provided False
                 help=f"Override {key} (default: {value})",
             )
         elif isinstance(value, (dict, SimpleNamespace, list)):
-            # For complex types, we'll just note that they can't be overridden via CLI
-            # A more advanced implementation might use JSON strings, but this is safer.
             pass
         else:
             ap.add_argument(
                 f"--{key}",
                 type=arg_type,
-                default=value,
+                default=None,
                 help=f"Override {key} (default: {value})",
             )
 
@@ -49,18 +47,23 @@ def main() -> None:
 
     # Start with the base config
     cfg = base_cfg
+    overrides = {}
 
     # Apply overrides from CLI arguments
-    # Note: We only update if the user provided the argument.
-    # We check against the default value to see if the arg was actually passed.
-    for key, default_value in vars(base_cfg).items():
+    for key in vars(base_cfg).keys():
         if hasattr(args, key):
             cli_value = getattr(args, key)
-            if cli_value != default_value:
-                print(f"[Config Override] {key}: {getattr(cfg, key)} -> {cli_value}")
-                setattr(cfg, key, cli_value)
+            if cli_value is not None:
+                original_value = getattr(cfg, key)
+                if cli_value != original_value:
+                    print(f"[Config Override] {key}: {original_value} -> {cli_value}")
+                    setattr(cfg, key, cli_value)
+                    overrides[key] = {"from": original_value, "to": cli_value}
 
-    # --- The rest of the script proceeds as before, but with the merged config ---
+    # --- Hashing and metadata saving ---
+    config_hash = hash_config(cfg)
+    cfg.config_hash = config_hash
+    print(f"[Config] Final config hash: {config_hash}")
 
     paths = cycle_paths(args.cycle)
 
@@ -71,7 +74,13 @@ def main() -> None:
     # --- persist config & meta stub up-front
     save_config(cfg, paths["config"])
     meta = save_meta(
-        cycle=args.cycle, seed=getattr(cfg, "seed", 42), notes="train loop start"
+        cycle=args.cycle, 
+        seed=getattr(cfg, "seed", 42), 
+        notes="train loop start",
+        extra={
+            "config_hash": config_hash,
+            "overrides": overrides
+        }
     )
     save_json(meta, paths["meta"])
 
@@ -128,6 +137,7 @@ def main() -> None:
         optimizer=optimizer,
         buffer=replay_buffer,
         config=cfg,
+        config_hash=config_hash, # Pass hash to training loop
         best_value_loss=best_value_loss,
         debug=True,
         save_paths=paths,
@@ -143,6 +153,7 @@ def main() -> None:
         "model_best": str(paths["model_best"]),
         "model_last": str(paths["model_last"]),
         "buffer": str(paths["buffer"]),
+        "config_hash": config_hash,
     }
     save_json(tiny_summary, paths["diag_smoke"])  # reuse diag_smoke for the summary
 
@@ -150,7 +161,11 @@ def main() -> None:
         cycle=args.cycle,
         seed=getattr(cfg, "seed", 42),
         notes="train loop end",
-        extra={"elapsed_sec": t1 - t0},
+        extra={
+            "elapsed_sec": t1 - t0,
+            "config_hash": config_hash,
+            "overrides": overrides
+        }
     )
     save_json(meta_end, paths["meta"])
 

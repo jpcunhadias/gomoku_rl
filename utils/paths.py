@@ -2,8 +2,23 @@ import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
+import hashlib
 
 BASE = Path("checkpoints")
+
+
+def hash_config(config_obj) -> str:
+    """Create a SHA1 hash of a configuration object for traceability."""
+    # Convert SimpleNamespace to dict if necessary
+    data = vars(config_obj) if hasattr(config_obj, '__dict__') else config_obj
+    
+    # Serialize to a canonical JSON string (sorted keys, no whitespace)
+    canonical_json = json.dumps(data, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    
+    # Return the SHA1 hash
+    return hashlib.sha1(canonical_json).hexdigest()
 
 
 def short_sha():
