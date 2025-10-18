@@ -29,13 +29,13 @@ def get_config() -> SimpleNamespace:
         tau_cutoff_plies=3,  # τ applies to plies 0..2 (your code uses < cutoff)
         tau_early=0.15,  # fallback if tau_early_plies not used
         tau_early_plies={
-            0: 0.45,
-            1: 0.30,
-            2: 0.20,
+            0: 0.55,
+            1: 0.35,
+            2: 0.25,
         },  # per-ply temperature for plies 0-2
         add_dirichlet_noise=True,
         dirichlet_epsilon=0.03,  # non-root noise
-        dirichlet_epsilon_root=0.30,  # root-only noise (move_number==0)
+        dirichlet_epsilon_root=0.40,  # root-only noise (move_number==0)
         dirichlet_alpha_mode="auto",  # α ≈ concentration / #legal (clipped)
         dirichlet_alpha_fixed=0.15,  # unused in AUTO
         dirichlet_alpha_min=0.01,  # allow smaller α
@@ -54,8 +54,8 @@ def get_config() -> SimpleNamespace:
         # Phase C – c_puct schedule (gentler, slower-decay)
         c_puct_schedule=dict(
             enabled=True,
-            c0=2.5,  # higher initial boost → root ≈ 4.0 (c_puct + c0)
-            lambda_=0.30,  # slow decay per depth level
+            c0=3.0,  # higher initial boost → root ≈ 4.0 (c_puct + c0)
+            lambda_=0.25,  # slow decay per depth level
             c_min=1.0,  # floor value
         ),
         cycle=2,

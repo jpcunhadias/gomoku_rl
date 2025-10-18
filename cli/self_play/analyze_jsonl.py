@@ -1,14 +1,10 @@
 import json
 import os
 from collections import defaultdict
-
+import argparse
 import numpy as np
 
-from train.config import get_config
-
-PATH = "checkpoints/selfplay/selfplay_v2.jsonl"
-# Dynamically fetch tau_cutoff_plies from the configuration
-TAU_CUTOFF_PLIES = get_config().tau_cutoff_plies
+from utils.paths import cycle_paths
 
 
 def load_jsonl(path):
@@ -25,8 +21,16 @@ def load_jsonl(path):
 
 
 def main():
-    if not os.path.exists(PATH):
-        raise FileNotFoundError(f"JSONL not found: {PATH}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cycle", type=int, required=True, help="Cycle number to analyze")
+    parser.add_argument("--tau_cutoff_plies", type=int, default=3, help="Number of plies to consider for early game entropy")
+    args = parser.parse_args()
+
+    paths = cycle_paths(args.cycle)
+    path = paths["sp_log"]
+
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"JSONL not found: {path}")
 
     summaries = []
     # Optional budget sanity (per-move records)
@@ -47,7 +51,7 @@ def main():
             early_medians_raw.append(float(np.median(cur_game_early_raw)))
             early_medians_norm.append(float(np.median(cur_game_early_norm)))
 
-    for rec in load_jsonl(PATH):
+    for rec in load_jsonl(path):
         # Per-move record?
         if "move_number" in rec and "entropy_pi_mcts" in rec:
             have_any_move = True
@@ -64,7 +68,7 @@ def main():
                     n_legal = sum(1 for x in lm if x)
 
             H_raw = float(rec["entropy_pi_mcts"])
-            if mv < TAU_CUTOFF_PLIES:
+            if mv < args.tau_cutoff_plies:
                 cur_game_early_raw.append(H_raw)
                 if n_legal and n_legal > 1:
                     cur_game_early_norm.append(H_raw / np.log(n_legal))
@@ -106,7 +110,7 @@ def main():
     total_games = len(summaries) if summaries else total
     uniq_rate = (uniq / total_games * 100.0) if total_games else 0.0
 
-    print("\n=== Phase B summary ===")
+    print(f"\n=== Phase B summary for Cycle {args.cycle} ===")
     print(f"Games analyzed: {total_games or total}")
     print(
         f"Early-entropy (RAW) median-of-medians: {med_raw:.3f} (IQR {q1_raw:.3f}–{q3_raw:.3f})"

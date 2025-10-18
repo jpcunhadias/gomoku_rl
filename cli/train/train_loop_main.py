@@ -1,7 +1,7 @@
 import argparse
 import os
 import time
-
+from types import SimpleNamespace
 import torch
 
 from model.policy_value_net import PolicyValueNet
@@ -12,13 +12,56 @@ from utils.paths import cycle_paths, save_config, save_json, save_meta
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--cycle", type=int, required=True, help="Experiment cycle id (int)", default=1
+    # First, load the base config to dynamically create CLI arguments
+    base_cfg = get_config()
+
+    ap = argparse.ArgumentParser(
+        description="Run the training loop with optional hyperparameter overrides."
     )
+    ap.add_argument(
+        "--cycle", type=int, required=True, help="Experiment cycle id (int)"
+    )
+
+    # Dynamically add arguments for each parameter in the base config
+    for key, value in vars(base_cfg).items():
+        arg_type = type(value)
+        if arg_type == bool:
+            # Handle boolean flags properly
+            ap.add_argument(
+                f"--{key}",
+                action=argparse.BooleanOptionalAction,
+                default=value,
+                help=f"Override {key} (default: {value})",
+            )
+        elif isinstance(value, (dict, SimpleNamespace, list)):
+            # For complex types, we'll just note that they can't be overridden via CLI
+            # A more advanced implementation might use JSON strings, but this is safer.
+            pass
+        else:
+            ap.add_argument(
+                f"--{key}",
+                type=arg_type,
+                default=value,
+                help=f"Override {key} (default: {value})",
+            )
+
     args = ap.parse_args()
 
-    cfg = get_config()
+    # Start with the base config
+    cfg = base_cfg
+
+    # Apply overrides from CLI arguments
+    # Note: We only update if the user provided the argument.
+    # We check against the default value to see if the arg was actually passed.
+    for key, default_value in vars(base_cfg).items():
+        if hasattr(args, key):
+            cli_value = getattr(args, key)
+            if cli_value != default_value:
+                print(f"[Config Override] {key}: {getattr(cfg, key)} -> {cli_value}")
+                setattr(cfg, key, cli_value)
+
+    # --- The rest of the script proceeds as before, but with the merged config ---
+
     paths = cycle_paths(args.cycle)
 
     print("Starting AlphaZero training loop")

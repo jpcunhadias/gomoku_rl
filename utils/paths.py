@@ -24,7 +24,7 @@ def cycle_paths(cycle: int):
         "buffer": BASE / "buffers" / f"replay_c1_cycle{cycle}.pkl",
         "config": BASE / "configs" / f"c1_cycle{cycle}.json",
         "meta": BASE / "meta" / f"c1_cycle{cycle}_meta.json",
-        "sp_log": BASE / "selfplay" / "selfplay_v2.jsonl",
+        "sp_log": BASE / "selfplay" / f"selfplay_c1_cycle{cycle}.jsonl",
         "sp_summary": BASE / "selfplay" / f"c1_cycle{cycle}_summary.json",
         "diag_dir": BASE / "diagnostics" / f"c1_cycle{cycle}_plots",
         "diag_policy": BASE / "diagnostics" / f"c1_cycle{cycle}_policy_head.json",
