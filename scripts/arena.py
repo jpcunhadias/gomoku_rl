@@ -3,18 +3,7 @@ import argparse
 import csv
 import json
 import os
-import random
-import time
-
-import numpy as np
-import torch
-from tqdm import tqdm
-
-from game.gomoku import GomokuBoard
-from game.player import DirichletAlphaMode, MCTSPlayer
-from mcts.evaluators import NeuralEvaluator
-from mcts.mcts import MCTS
-from model.policy_value_net import PolicyValueNet
+from utils.seeding import set_global_seed
 
 
 def load_player(
@@ -256,15 +245,7 @@ def main():
         raise ValueError(f"--games must be even (got {args.games})")
 
     # Determinism: seed all random sources
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(args.seed)
-        torch.cuda.manual_seed_all(args.seed)  # for multi-GPU
-    if torch.backends.cudnn.is_available():
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+    set_global_seed(args.seed)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     schedule = dict(

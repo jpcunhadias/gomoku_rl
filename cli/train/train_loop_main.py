@@ -2,6 +2,7 @@ import argparse
 import os
 import time
 from types import SimpleNamespace
+
 import torch
 
 from model.policy_value_net import PolicyValueNet
@@ -9,6 +10,7 @@ from train.config import get_config
 from train.replay_buffer import ReplayBuffer
 from train.train_loop import run_training
 from utils.paths import cycle_paths, save_config, save_json, save_meta, hash_config
+from utils.seeding import set_global_seed
 
 
 def main() -> None:
@@ -60,6 +62,9 @@ def main() -> None:
                     setattr(cfg, key, cli_value)
                     overrides[key] = {"from": original_value, "to": cli_value}
 
+    # Set the global seed for reproducibility
+    set_global_seed(cfg.seed)
+
     # --- Hashing and metadata saving ---
     config_hash = hash_config(cfg)
     cfg.config_hash = config_hash
@@ -74,13 +79,10 @@ def main() -> None:
     # --- persist config & meta stub up-front
     save_config(cfg, paths["config"])
     meta = save_meta(
-        cycle=args.cycle, 
-        seed=getattr(cfg, "seed", 42), 
+        cycle=args.cycle,
+        seed=getattr(cfg, "seed", 42),
         notes="train loop start",
-        extra={
-            "config_hash": config_hash,
-            "overrides": overrides
-        }
+        extra={"config_hash": config_hash, "overrides": overrides},
     )
     save_json(meta, paths["meta"])
 
@@ -137,7 +139,7 @@ def main() -> None:
         optimizer=optimizer,
         buffer=replay_buffer,
         config=cfg,
-        config_hash=config_hash, # Pass hash to training loop
+        config_hash=config_hash,  # Pass hash to training loop
         best_value_loss=best_value_loss,
         debug=True,
         save_paths=paths,
@@ -164,8 +166,8 @@ def main() -> None:
         extra={
             "elapsed_sec": t1 - t0,
             "config_hash": config_hash,
-            "overrides": overrides
-        }
+            "overrides": overrides,
+        },
     )
     save_json(meta_end, paths["meta"])
 

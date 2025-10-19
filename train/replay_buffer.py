@@ -56,3 +56,7 @@ class ReplayBuffer:
 
     def __len__(self) -> int:
         return len(self.buffer)
+
+    def shuffle(self) -> None:
+        """Shuffles the buffer in-place."""
+        random.shuffle(self.buffer)

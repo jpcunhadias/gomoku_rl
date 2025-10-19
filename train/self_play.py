@@ -22,7 +22,7 @@ from train.diversity_manager import DiversityManager
 from train.replay_buffer import ReplayBuffer
 from train.sample_logger import SampleLogger
 from train.schema import SampleV2
-from utils.paths import cycle_paths, save_config, save_meta
+from utils.paths import cycle_paths, save_config, save_meta, save_json
 
 # Configure logging
 logging.basicConfig(
@@ -427,9 +427,35 @@ def run_selfplay_pipeline(
                 f"Seeding new buffer from previous cycle buffer: {prev_buf_path}"
             )
             prev = ReplayBuffer.load(prev_buf_path)
-            tail_n = min(30000, len(prev))  # pick a tail window
+            
+            # Seed with 25% of the buffer capacity from the tail of the previous buffer
+            seed_fraction = 0.25
+            seed_count = int(config.replay_buffer_size * seed_fraction)
+            tail_n = min(seed_count, len(prev))
+            
             buffer = ReplayBuffer(max_size=config.replay_buffer_size)
-            buffer.add(prev.buffer[-tail_n:])  # seed
+            buffer.add(prev.buffer[-tail_n:])
+            
+            # Shuffle the newly seeded buffer
+            logging.info(f"Shuffling buffer with {len(buffer)} seeded samples.")
+            buffer.shuffle()
+
+            # Log metadata about the seeding process
+            meta_path = paths["meta"]
+            if os.path.exists(meta_path):
+                with open(meta_path, "r") as f:
+                    meta = json.load(f)
+            else:
+                meta = {}
+            
+            meta.update({
+                "seeded_from_cycle": cycle - 1,
+                "seed_count": tail_n,
+                "seed_fraction": tail_n / config.replay_buffer_size,
+                "seed_selection": "tail_uniform",
+            })
+            save_json(meta, meta_path)
+
         else:
             logging.info(
                 "No previous cycle buffer found. Initializing new ReplayBuffer."

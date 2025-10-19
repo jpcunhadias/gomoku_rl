@@ -1,8 +1,26 @@
 # Makefile for AlphaZero Project
 # Run `make help` to see available commands
 
-.PHONY: help lint lint-fix format format-ruff format-black format-all clean all \
-        self-play train debug analyze_buffer eval reset micro_train arena
+# --- Configuration ---
+# Default cycle to run. Override from CLI: make train CYCLE=2
+CYCLE ?= 1
+
+# Default cycles for arena comparison. Override from CLI.
+CANDIDATE_CYCLE ?= $(CYCLE)
+BASELINE_CYCLE ?= $(shell expr $(CYCLE) - 1)
+
+# Paths derived from cycle numbers
+CANDIDATE_MODEL := checkpoints/models/c1_cycle$(CANDIDATE_CYCLE)_best.pth
+BASELINE_MODEL := checkpoints/models/c1_cycle$(BASELINE_CYCLE)_best.pth
+CYCLE_BUFFER := checkpoints/buffers/replay_c1_cycle$(CYCLE).pkl
+CYCLE_MODEL_LAST := checkpoints/models/c1_cycle$(CYCLE)_last.pth
+
+# Pass-through arguments for training overrides
+# Example: make train CYCLE=2 ARGS="--learning_rate 0.0005"
+ARGS ?= 
+
+.PHONY: help lint lint-fix format format-all clean all \
+        self-play train analyze debug arena
 
 # Set PYTHONPATH to current directory (project root)
 export PYTHONPATH := $(shell pwd)
@@ -10,84 +28,61 @@ export PYTHONPATH := $(shell pwd)
 # Show available commands
 help:
 	@echo "Available commands:"
-	@echo "  self-play       - Run self-play script"
-	@echo "  train           - Run training loop"
-	@echo "  reset           - Reset value head of a checkpoint"
-	@echo "  micro_train     - Run micro training for value stabilization"
-	@echo "  arena           - Run arena to compare two models"
-	@echo "  eval            - Evaluate model vs. pure MCTS"
-	@echo "  debug           - Run debug script for value inspection"
-	@echo "  analyze_buffer  - Analyze buffer contents"
-	@echo "  lint            - Run Ruff linter (check only)"
-	@echo "  lint-fix        - Run Ruff linter and auto-fix"
-	@echo "  format          - Run both Ruff and Black formatters"
-	@echo "  format-ruff     - Format code with Ruff"
-	@echo "  format-black    - Format code with Black (PEP8)"
-	@echo "  format-all      - Alias for 'format'"
-	@echo "  clean           - Remove artifacts (checkpoints/logs)"
-	@echo "  all             - Run lint-fix and format"
+	@echo "  make self-play [CYCLE=N]"
+	@echo "  make train [CYCLE=N] [ARGS=\"--learning_rate 0.001\"]"
+	@echo "  make analyze [CYCLE=N]"
+	@echo "  make debug [CYCLE=N]"
+	@echo "  make arena [CANDIDATE_CYCLE=N] [BASELINE_CYCLE=M]"
+	@echo ""
+	@echo "Code Quality:"
+	@echo "  lint, lint-fix, format, clean, all"
 
-# Core functionality
+# --- Core Workflow ---
 self-play:
-	python cli/self_play/self_play_main.py
+	python cli/self_play/self_play_main.py --cycle $(CYCLE)
 
 train:
-	python cli/train/train_loop_main.py
+	python cli/train/train_loop_main.py --cycle $(CYCLE) $(ARGS)
 
-eval:
-	python cli/eval/eval.py --checkpoint checkpoints/policy_value_net_best.pth --num_games 20 --board_size 8 --eval_sim 800
+analyze:
+	python cli/self_play/analyze_jsonl.py --cycle $(CYCLE)
 
 debug:
+	@echo "Running debug checks for CYCLE=$(CYCLE)"
 	python debug/value_head_check.py \
-  --checkpoint checkpoints/policy_value_net_best.pth \
-  --buffer checkpoints/replay_buffer.pkl \
-  --batch 256 \
-  --output debug/debug_outputs && \
+	  --checkpoint $(CYCLE_MODEL_LAST) \
+	  --buffer $(CYCLE_BUFFER)
 	python debug/policy_head_check.py \
-  --checkpoint checkpoints/policy_value_net_best.pth \
-  --buffer checkpoints/replay_buffer.pkl \
-  --batch 512 && \
-	python debug/training_smoke_check.py
+	  --checkpoint $(CYCLE_MODEL_LAST) \
+	  --buffer $(CYCLE_BUFFER)
+	python debug/training_smoke_check.py \
+	  --checkpoint $(CYCLE_MODEL_LAST) \
+	  --buffer $(CYCLE_BUFFER)
 
-analyze_buffer:
-	python cli/self_play/analyze_buffer.py
+arena:
+	@echo "Comparing CANDIDATE=$(CANDIDATE_MODEL) vs BASELINE=$(BASELINE_MODEL)"
+	python scripts/arena.py \
+	  --baseline $(BASELINE_MODEL) \
+	  --candidate $(CANDIDATE_MODEL) \
+	  --games 200 --sims 800 \
+	  --out checkpoints/arena/arena_c$(CANDIDATE_CYCLE)_vs_c$(BASELINE_CYCLE).json \
+	  --cycle $(CANDIDATE_CYCLE)
 
-# Code quality
+# --- Code Quality ---
 lint:
 	ruff check .
 
 lint-fix:
 	ruff check . --fix
 
-format-ruff:
+format:
 	ruff format .
-
-format-black:
 	black .
 
-format format-all: format-ruff format-black
-
-# Cleanup
+# --- Cleanup ---
 clean:
 	@echo "Cleaning checkpoints and logs..."
 	@find checkpoints -type f ! -name ".gitkeep" -delete
 	@find logs -type f ! -name ".gitkeep" -delete
 
-# Combined quality check
 all: lint-fix format
-
-reset:
-	python scripts/legacy/reset_value_head.py \
-  --ckpt_in checkpoints/policy_value_net_best.pth \
-  --ckpt_out checkpoints/policy_value_net_reset_value.pth
-
-micro_train:
-	python scripts/legacy/micro_train_value_stabilize_v3.py
-
-arena:
-	python scripts/arena.py \
-	  --baseline checkpoints/models/c1_cycle2_last.pth \
-	  --candidate checkpoints/models/c1_cycle2_last.pth \
-	  --games 200 --sims 800 \
-	  --schedule_c0 2.5 --schedule_lambda 0.30 --schedule_cmin 1.0 \
-	  --out checkpoints/arena/arena_c2_AB_schedON_vs_OFF.json
