@@ -3,61 +3,56 @@ from types import SimpleNamespace
 
 def get_config() -> SimpleNamespace:
     return SimpleNamespace(
+        # --- General ---
         seed=12345,
+        cycle=2,
+        # --- Self-Play ---
         num_self_play_games=200,
         self_play_num_simulations=800,
+        reload_buffer_every=250,
+        replay_buffer_size=30000,
+        # --- Training ---
         batch_size=128,
         learning_rate=1e-3,
         epochs=30,
         steps_per_epoch=50,
-        reload_buffer_every=250,
-        replay_buffer_size=30000,
         save_path="checkpoints/policy_value_net.pth",
+        use_stratified_sampler=True,
+        report_sampler_mix=False,
+        # --- Evaluation ---
         eval_every=200,
         target_win_rate=0.9,
         eval_num_games=20,
         eval_num_simulations=800,
-        # MCTS
+        # --- MCTS Core ---
         c_puct=1.5,
-        c_puct_early=0.20,  # a touch less exploration early
-        c_puct_cutoff_plies=3,  # use c_puct_early for plies 0,1,2
         c_puct_pure=2.0,
         use_rave=False,
-        # Sampler / training
-        use_stratified_sampler=True,
-        report_sampler_mix=False,
-        # --- Phase B knobs (tighter) ---
-        tau_cutoff_plies=3,  # τ applies to plies 0..2 (your code uses < cutoff)
-        tau_early=0.15,  # fallback if tau_early_plies not used
-        tau_early_plies={
-            0: 0.55,
-            1: 0.35,
-            2: 0.25,
-        },  # per-ply temperature for plies 0-2
+        temperature=0.2,  # Default MCTSPlayer temp (overridden by τ schedule)
+        # --- MCTS Self-Play Search Tuning (Phase C) ---
+        # Temperature (τ)
+        tau_cutoff_plies=3,  # τ applies to plies 0..2
+        tau_early=0.15,  # Fallback if tau_early_plies not used
+        tau_early_plies={0: 0.55, 1: 0.35, 2: 0.25},
+        # Dirichlet Noise
         add_dirichlet_noise=True,
-        dirichlet_epsilon=0.03,  # non-root noise
-        dirichlet_epsilon_root=0.40,  # root-only noise (move_number==0)
-        dirichlet_alpha_mode="auto",  # α ≈ concentration / #legal (clipped)
-        dirichlet_alpha_fixed=0.15,  # unused in AUTO
-        dirichlet_alpha_min=0.01,  # allow smaller α
-        dirichlet_alpha_max=0.06,  # flatter noise for early positions
-        dirichlet_concentration=5.0,  # helps fight super-peaky prior at center
-        # simulation budget shaping
-        sim_budget={
-            "early": 750,
-            "mid": 200,
-            "late": 120,
-        },  # a bit more early sims sharpens π
-        # phase cutoffs (plies)
+        dirichlet_epsilon=0.03,  # Non-root noise
+        dirichlet_epsilon_root=0.40,  # Root-only noise
+        dirichlet_alpha_mode="auto",
+        dirichlet_alpha_fixed=0.15,
+        dirichlet_alpha_min=0.01,
+        dirichlet_alpha_max=0.06,
+        dirichlet_concentration=5.0,
+        # Simulation Budget
+        sim_budget={"early": 750, "mid": 200, "late": 120},
         phase_cutoffs={"early": 12, "mid": 28},
-        # default MCTSPlayer temp (overridden per-move by τ schedule anyway)
-        temperature=0.2,
-        # Phase C – c_puct schedule (gentler, slower-decay)
-        c_puct_schedule=dict(
-            enabled=True,
-            c0=3.0,  # higher initial boost → root ≈ 4.0 (c_puct + c0)
-            lambda_=0.25,  # slow decay per depth level
-            c_min=1.0,  # floor value
-        ),
-        cycle=2,
+        # C_puct Schedule
+        c_puct_schedule=dict(enabled=True, c0=3.0, lambda_=0.25, c_min=1.0),
+        c_puct_early=0.20,
+        c_puct_cutoff_plies=3,
+        # --- Opening Variety (Self-Play) ---
+        sp_uniform_root_p=0.15,  # Probability of forcing a random first move
+        sp_block_opening_repeats=True,  # Enable opening memory guard
+        opening_memory_size=300,  # Size of the recent openings cache
+        restart_cap_fraction=0.20,  # Disable guard if restarts exceed this fraction
     )
