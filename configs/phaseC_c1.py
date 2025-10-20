@@ -5,7 +5,7 @@ def get_config() -> SimpleNamespace:
     return SimpleNamespace(
         # --- General ---
         seed=12345,
-        cycle=2,
+        cycle=1,
         # --- Self-Play ---
         num_self_play_games=200,
         self_play_num_simulations=800,
@@ -14,7 +14,7 @@ def get_config() -> SimpleNamespace:
         # --- Training ---
         batch_size=128,
         learning_rate=1e-3,
-        epochs=30,
+        epochs=10,
         steps_per_epoch=50,
         save_path="checkpoints/policy_value_net.pth",
         use_stratified_sampler=True,
@@ -36,23 +36,23 @@ def get_config() -> SimpleNamespace:
         tau_early_plies={0: 0.55, 1: 0.35, 2: 0.25},
         # Dirichlet Noise
         add_dirichlet_noise=True,
-        dirichlet_epsilon=0.03,  # Non-root noise
+        dirichlet_epsilon=0.05,  # Non-root noise
         dirichlet_epsilon_root=0.40,  # Root-only noise
         dirichlet_alpha_mode="auto",
         dirichlet_alpha_fixed=0.15,
         dirichlet_alpha_min=0.01,
-        dirichlet_alpha_max=0.06,
-        dirichlet_concentration=5.0,
+        dirichlet_alpha_max=0.08,
+        dirichlet_concentration=6.0,
         # Simulation Budget
         sim_budget={"early": 750, "mid": 200, "late": 120},
         phase_cutoffs={"early": 12, "mid": 28},
         # C_puct Schedule
-        c_puct_schedule=dict(enabled=True, c0=3.0, lambda_=0.25, c_min=1.0),
+        c_puct_schedule={"enabled": True, "c0": 2.5, "lambda_": 0.30, "c_min": 1.0},
         c_puct_early=0.20,
         c_puct_cutoff_plies=3,
         # --- Opening Variety (Self-Play) ---
-        sp_uniform_root_p=0.15,  # Probability of forcing a random first move
-        sp_block_opening_repeats=True,  # Enable opening memory guard
+        sp_uniform_root_p=0.0,  # Probability of forcing a random first move
+        sp_block_opening_repeats=False,  # Enable opening memory guard
         opening_memory_size=300,  # Size of the recent openings cache
         restart_cap_fraction=0.20,  # Disable guard if restarts exceed this fraction
     )

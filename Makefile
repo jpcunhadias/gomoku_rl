@@ -17,7 +17,7 @@ CYCLE_MODEL_LAST := checkpoints/models/c1_cycle$(CYCLE)_last.pth
 
 # Pass-through arguments for training overrides
 # Example: make train CYCLE=2 ARGS="--learning_rate 0.0005"
-ARGS ?= 
+ARGS ?=
 
 .PHONY: help lint lint-fix format format-all clean all \
         self-play train analyze debug arena
