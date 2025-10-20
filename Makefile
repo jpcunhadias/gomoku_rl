@@ -39,7 +39,7 @@ help:
 
 # --- Core Workflow ---
 self-play:
-	python cli/self_play/self_play_main.py --cycle $(CYCLE)
+	python cli/self_play/self_play_main.py --cycle $(CYCLE) $(ARGS)
 
 train:
 	python cli/train/train_loop_main.py --cycle $(CYCLE) $(ARGS)
