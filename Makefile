@@ -10,8 +10,8 @@ CANDIDATE_CYCLE ?= $(CYCLE)
 BASELINE_CYCLE ?= $(shell expr $(CYCLE) - 1)
 
 # Paths derived from cycle numbers
-CANDIDATE_MODEL := checkpoints/models/c1_cycle$(CANDIDATE_CYCLE)_best.pth
-BASELINE_MODEL := checkpoints/models/c1_cycle$(BASELINE_CYCLE)_best.pth
+CANDIDATE_MODEL := checkpoints/models/c1_cycle$(CANDIDATE_CYCLE)_last.pth
+BASELINE_MODEL := checkpoints/models/c1_cycle$(BASELINE_CYCLE)_last.pth
 CYCLE_BUFFER := checkpoints/buffers/replay_c1_cycle$(CYCLE).pkl
 CYCLE_MODEL_LAST := checkpoints/models/c1_cycle$(CYCLE)_last.pth
 

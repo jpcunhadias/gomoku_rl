@@ -3,6 +3,18 @@ import argparse
 import csv
 import json
 import os
+import random
+import time
+
+import numpy as np
+import torch
+from tqdm import tqdm
+
+from game.gomoku import GomokuBoard
+from game.player import DirichletAlphaMode, MCTSPlayer
+from mcts.evaluators import NeuralEvaluator
+from mcts.mcts import MCTS
+from model.policy_value_net import PolicyValueNet
 from utils.seeding import set_global_seed
 
 
@@ -35,13 +47,13 @@ def load_player(
     """
     # Build PolicyValueNet, load model_state_dict, eval()
     model = PolicyValueNet(board_size=8).to(device)
-    
+
     # Load checkpoint with error handling
     try:
         sd = torch.load(ckpt, map_location=device)["model_state_dict"]
     except Exception as e:
         raise RuntimeError(f"Failed to load checkpoint {ckpt}: {e}")
-    
+
     model.load_state_dict(sd)
     model.eval()
 
