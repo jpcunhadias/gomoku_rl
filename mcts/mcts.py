@@ -1,3 +1,4 @@
+import math
 import random
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -58,8 +59,6 @@ class MCTS:
             for action in illegal_children:
                 del node.children[action]
 
-        depth = 0
-        depth_cs: List[float] = []
         while not node.is_leaf():
             legal_moves_set = set(state.get_legal_moves())
             for action in list(node.children):
@@ -69,14 +68,8 @@ class MCTS:
             if node.is_leaf():
                 break
 
-            c_here = (
-                self._c_puct_at_depth(depth)
-                if hasattr(self, "c_puct_schedule")
-                else self.c_puct
-            )
-            depth_cs.append(c_here)
             action, node = node.select_child(
-                c_puct=c_here,
+                self,
                 k_rave=300.0,
             )
 
@@ -95,8 +88,6 @@ class MCTS:
             state.apply_move(row, col)
             visited_moves.add((row, col))
 
-            depth += 1
-
         if state.is_terminal():
             value = state.evaluate_terminal()
         else:
@@ -108,7 +99,7 @@ class MCTS:
             )
 
         node.backpropagate(value, visited_moves)
-        self.last_depth_cs = depth_cs
+        self.last_depth_cs = None
 
     def apply_root_dirichlet(self, epsilon: float, alpha: float) -> None:
         """Mix Dir(α) into current root's priors: P <- (1-ε)P + ε·Dir(α)."""
@@ -191,11 +182,23 @@ class MCTS:
             "mean": float(sum(vc) / len(vc)),
         }
 
-    def _c_puct_at_depth(self, depth: int) -> float:
-        sch = getattr(self, "c_puct_schedule", {"enabled": False})
-        if not sch.get("enabled", False):
-            return self.c_puct
-        c0 = float(sch.get("c0", 3.0))
-        lam = float(sch.get("lambda_", 0.06))
-        cmin = float(sch.get("c_min", 1.0))
-        return c0 * np.exp(-lam * depth) + cmin
+
+
+    def _effective_c_puct(self, depth: int) -> float:
+        """
+        Additive c_puct schedule:
+        eff = base_c_puct + max(0, c0 * exp(-lambda * depth))
+        and finally floored by c_min
+        """
+        base = getattr(self, "c_puct", 1.5)
+        sched = getattr(self, "c_puct_schedule", {"enabled": False})
+        if not (isinstance(sched, dict) and sched.get("enabled", False)):
+            return base
+
+        c0 = float(sched.get("c0", 0.0))
+        lam = float(sched.get("lambda_", sched.get("lambda", 0.0)))
+        c_min = float(sched.get("c_min", 1.0))
+
+        bump = max(0.0, c0 * math.exp(-lam * max(0, depth)))
+        eff = base + bump
+        return max(eff, c_min)

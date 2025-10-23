@@ -67,6 +67,12 @@ def load_player(
         c_puct_schedule=(schedule if use_schedule else {"enabled": False}),
     )
 
+    # Log effective c_puct values for the first 4 depths
+    print(f"--- c_puct schedule for {name} ---")
+    for d in range(4):
+        print(f"depth {d}: {mcts._effective_c_puct(d)}")
+    print("--------------------")
+
     # Wrap with MCTSPlayer (deterministic by default for arena)
     player = MCTSPlayer(
         mcts,
