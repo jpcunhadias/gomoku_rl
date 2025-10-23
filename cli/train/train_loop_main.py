@@ -26,6 +26,8 @@ def main() -> None:
 
     # Dynamically add arguments for each parameter in the base config
     for key, value in vars(base_cfg).items():
+        if key == "cycle":
+            continue
         arg_type = type(value)
         if arg_type == bool:
             # Handle boolean flags properly
