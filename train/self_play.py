@@ -229,7 +229,7 @@ class SelfPlayRunner:
                     sched = getattr(current_player.mcts, "last_depth_cs", [])
                     root_c = (
                         f"{sched[0]:.2f}"
-                        if len(sched) > 0
+                        if sched and len(sched) > 0
                         else f"{current_player.mcts.c_puct:.2f}"
                     )
                     msg = (

@@ -1,0 +1,151 @@
+
+import pytest
+import numpy as np
+
+from game.gomoku import GomokuBoard
+from mcts.evaluators import NeuralEvaluator
+from mcts.mcts import MCTS
+from model.policy_value_net import PolicyValueNet
+
+
+def test_c_puct_schedule():
+    schedule = {"enabled": True, "c0": 2.0, "lambda_": 0.5, "c_min": 0.5}
+    mcts = MCTS(evaluator_fn=None, c_puct=1.0, c_puct_schedule=schedule)
+
+    # At depth 0, c_puct should be base + c0
+    assert mcts._effective_c_puct(0) == 1.0 + 2.0
+
+    # At depth 1, it should be base + c0 * exp(-lambda * 1)
+    assert mcts._effective_c_puct(1) == 1.0 + 2.0 * np.exp(-0.5 * 1)
+
+    # At great depth, it should approach c_min
+    assert mcts._effective_c_puct(100) > 0.5
+    assert abs(mcts._effective_c_puct(100) - 1.0) < 1e-5 # approaches base c_puct, not c_min
+
+    # Test c_min flooring
+    schedule_with_c_min = {"enabled": True, "c0": -1.0, "lambda_": 0.5, "c_min": 0.8}
+    mcts_with_c_min = MCTS(evaluator_fn=None, c_puct=0.1, c_puct_schedule=schedule_with_c_min)
+    assert mcts_with_c_min._effective_c_puct(0) == 0.8
+
+
+def test_dirichlet_noise():
+    board = GomokuBoard(board_size=3)
+    board.apply_move(1, 1)
+
+    model = PolicyValueNet(board_size=3, num_blocks=1)
+    model._init_weights()
+    evaluator = NeuralEvaluator(model)
+    mcts = MCTS(evaluator_fn=evaluator, c_puct=1.0, n_simulations=1)
+
+    # Run one simulation to expand the root
+    mcts.get_action_probs(board, temp=1.0)
+
+    # Get the original priors
+    original_priors = {a: c.P for a, c in mcts.root.children.items()}
+
+    # Apply Dirichlet noise
+    mcts.apply_root_dirichlet(epsilon=0.25, alpha=0.5)
+
+    # Get the new priors
+    new_priors = {a: c.P for a, c in mcts.root.children.items()}
+
+    # Check that the priors have been modified
+    assert original_priors != new_priors
+
+    # Check that the sum of new priors is still close to 1
+    assert np.isclose(sum(new_priors.values()), 1.0)
+
+    # Check that each new prior is a mix of the old prior and some noise
+    for action, old_prior in original_priors.items():
+        new_prior = new_priors[action]
+        assert new_prior >= (1 - 0.25) * old_prior
+
+def test_root_noise_in_get_action_probs():
+    board = GomokuBoard(board_size=3)
+    board.apply_move(1, 1)
+
+    model = PolicyValueNet(board_size=3, num_blocks=1)
+    model._init_weights()
+    evaluator = NeuralEvaluator(model)
+    mcts = MCTS(evaluator_fn=evaluator, c_puct=1.0, n_simulations=1)
+
+    # Get action probabilities without noise
+    mcts.get_action_probs(board, temp=1.0)
+    priors_no_noise = {a: c.P for a, c in mcts.root.children.items()}
+
+    # Reset root and get action probabilities with noise
+    mcts.reset_root()
+    mcts.get_action_probs(board, temp=1.0, root_noise=(0.25, 0.5))
+    priors_with_noise = {a: c.P for a, c in mcts.root.children.items()}
+
+    # Check that the priors have been modified
+    assert priors_no_noise != priors_with_noise
+
+def test_backpropagation():
+    board = GomokuBoard(board_size=3)
+    board.apply_move(1, 1)
+
+    # Mock evaluator that returns a fixed value and priors
+    def mock_evaluator(board):
+        legal_moves = board.get_legal_moves()
+        priors = {move: 1.0 / (i + 2) for i, move in enumerate(legal_moves)}
+        total = sum(priors.values())
+        priors = {move: p / total for move, p in priors.items()}
+        return list(priors.items()), 0.5
+
+    mcts = MCTS(evaluator_fn=mock_evaluator, c_puct=1.0, n_simulations=2)
+
+    # Run one simulation to expand the root
+    mcts.run_simulation(mcts.root, board.clone())
+
+    # The root should have been visited once, and its Q value should be 0.5
+    assert mcts.root.n_visits == 1
+    assert mcts.root.Q == 0.5
+
+    # The children are created, but not visited yet
+    for child in mcts.root.children.values():
+        assert child.n_visits == 0
+        assert child.Q == 0
+
+    # Run a second simulation. This will select a child and backpropagate the value.
+    mcts.run_simulation(mcts.root, board.clone())
+
+    # The root should have been visited twice
+    assert mcts.root.n_visits == 2
+
+    # One of the children should have been visited
+    visited_children = [c for c in mcts.root.children.values() if c.n_visits > 0]
+    assert len(visited_children) == 1
+    selected_child = visited_children[0]
+
+    # The selected child should have been visited once, and its Q value should be 0.5
+    assert selected_child.n_visits == 1
+    assert selected_child.Q == 0.5
+
+    # The root's Q value should be the average of the two simulations, taking into account the alternating player
+    assert mcts.root.Q == (0.5 - 0.5) / 2
+
+def test_tree_reuse():
+    board = GomokuBoard(board_size=3)
+    board.apply_move(1, 1)
+
+    model = PolicyValueNet(board_size=3, num_blocks=1)
+    model._init_weights()
+    evaluator = NeuralEvaluator(model)
+    mcts = MCTS(evaluator_fn=evaluator, c_puct=1.0, n_simulations=10)
+
+    # Run some simulations
+    mcts.get_action_probs(board, temp=1.0)
+
+    # Get the root and its children
+    old_root = mcts.root
+    children = old_root.children
+
+    # Choose a move and update the MCTS
+    action, _ = max(children.items(), key=lambda item: item[1].n_visits)
+    mcts.update_with_move(action)
+
+    # The new root should be the child of the old root
+    assert mcts.root == children[action]
+    assert mcts.root.parent is None
+

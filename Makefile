@@ -61,12 +61,13 @@ debug:
 
 arena:
 	@echo "Comparing CANDIDATE=$(CANDIDATE_MODEL) vs BASELINE=$(BASELINE_MODEL)"
-	python scripts/arena.py \
+	PYTHONPATH=. python scripts/arena.py \
 	  --baseline $(BASELINE_MODEL) \
 	  --candidate $(CANDIDATE_MODEL) \
-	  --games 200 --sims 800 \
+	  --games 200 --sims 800 --seed 42 \
 	  --out checkpoints/arena/arena_c$(CANDIDATE_CYCLE)_vs_c$(BASELINE_CYCLE).json \
-	  --cycle $(CANDIDATE_CYCLE)
+	  --cycle $(CANDIDATE_CYCLE) \
+	  $(ARGS)
 
 # --- Code Quality ---
 lint:

@@ -47,7 +47,7 @@ def get_config() -> SimpleNamespace:
         sim_budget={"early": 750, "mid": 200, "late": 120},
         phase_cutoffs={"early": 12, "mid": 28},
         # C_puct Schedule
-        c_puct_schedule={"enabled": True, "c0": 2.5, "lambda_": 0.30, "c_min": 1.0},
+        c_puct_schedule={"enabled": True, "c0": 0.3, "lambda_": 0.7, "c_min": 1.0},
         c_puct_early=0.20,
         c_puct_cutoff_plies=3,
         # --- Opening Variety (Self-Play) ---

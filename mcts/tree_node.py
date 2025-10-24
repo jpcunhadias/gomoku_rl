@@ -68,13 +68,16 @@ class TreeNode:
                 print(f"[DEBUG] Ignored invalid expansion action: {action}")
 
     def select_child(
-        self, mcts: "MCTS", k_rave: float = 300.0
+        self, mcts: "MCTS" = None, c_puct: float = None, k_rave: float = 300.0
     ) -> Tuple[Any, "TreeNode"]:
         """Select child with highest (PUCT + RAVE) or standard PUCT score."""
         if self.is_leaf():
             raise ValueError("Cannot select child from a leaf node.")
 
-        c_puct = mcts._effective_c_puct(self.depth)
+        if mcts is not None:
+            c_puct = mcts._effective_c_puct(self.depth)
+        elif c_puct is None:
+            c_puct = 1.5
 
         def puct_score(child: "TreeNode", move: Any) -> float:
             u = c_puct * child.P * np.sqrt(self.n_visits + 1e-8) / (1 + child.n_visits)
