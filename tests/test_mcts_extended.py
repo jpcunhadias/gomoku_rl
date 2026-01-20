@@ -1,5 +1,3 @@
-
-import pytest
 import numpy as np
 
 from game.gomoku import GomokuBoard
@@ -20,11 +18,15 @@ def test_c_puct_schedule():
 
     # At great depth, it should approach c_min
     assert mcts._effective_c_puct(100) > 0.5
-    assert abs(mcts._effective_c_puct(100) - 1.0) < 1e-5 # approaches base c_puct, not c_min
+    assert (
+        abs(mcts._effective_c_puct(100) - 1.0) < 1e-5
+    )  # approaches base c_puct, not c_min
 
     # Test c_min flooring
     schedule_with_c_min = {"enabled": True, "c0": -1.0, "lambda_": 0.5, "c_min": 0.8}
-    mcts_with_c_min = MCTS(evaluator_fn=None, c_puct=0.1, c_puct_schedule=schedule_with_c_min)
+    mcts_with_c_min = MCTS(
+        evaluator_fn=None, c_puct=0.1, c_puct_schedule=schedule_with_c_min
+    )
     assert mcts_with_c_min._effective_c_puct(0) == 0.8
 
 
@@ -60,6 +62,7 @@ def test_dirichlet_noise():
         new_prior = new_priors[action]
         assert new_prior >= (1 - 0.25) * old_prior
 
+
 def test_root_noise_in_get_action_probs():
     board = GomokuBoard(board_size=3)
     board.apply_move(1, 1)
@@ -80,6 +83,7 @@ def test_root_noise_in_get_action_probs():
 
     # Check that the priors have been modified
     assert priors_no_noise != priors_with_noise
+
 
 def test_backpropagation():
     board = GomokuBoard(board_size=3)
@@ -125,6 +129,7 @@ def test_backpropagation():
     # The root's Q value should be the average of the two simulations, taking into account the alternating player
     assert mcts.root.Q == (0.5 - 0.5) / 2
 
+
 def test_tree_reuse():
     board = GomokuBoard(board_size=3)
     board.apply_move(1, 1)
@@ -148,4 +153,3 @@ def test_tree_reuse():
     # The new root should be the child of the old root
     assert mcts.root == children[action]
     assert mcts.root.parent is None
-

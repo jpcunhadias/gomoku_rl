@@ -5,13 +5,23 @@
 # Default cycle to run. Override from CLI: make train CYCLE=2
 CYCLE ?= 1
 
+# Default config file. Override from CLI: make train CONFIG=phaseC_c2
+# Maps cycle numbers to default configs
+ifeq ($(CYCLE),2)
+  CONFIG ?= phaseC_c2
+else ifeq ($(CYCLE),1)
+  CONFIG ?= phaseC_c1
+else
+  CONFIG ?= phaseC_c1
+endif
+
 # Default cycles for arena comparison. Override from CLI.
 CANDIDATE_CYCLE ?= $(CYCLE)
 BASELINE_CYCLE ?= $(shell expr $(CYCLE) - 1)
 
 # Paths derived from cycle numbers
-CANDIDATE_MODEL := checkpoints/models/c1_cycle$(CANDIDATE_CYCLE)_last.pth
-BASELINE_MODEL := checkpoints/models/c1_cycle$(BASELINE_CYCLE)_last.pth
+CANDIDATE_MODEL := checkpoints/models/c1_cycle$(CANDIDATE_CYCLE)_best.pth
+BASELINE_MODEL := checkpoints/models/c1_cycle$(BASELINE_CYCLE)_best.pth
 CYCLE_BUFFER := checkpoints/buffers/replay_c1_cycle$(CYCLE).pkl
 CYCLE_MODEL_LAST := checkpoints/models/c1_cycle$(CYCLE)_last.pth
 
@@ -28,24 +38,37 @@ export PYTHONPATH := $(shell pwd)
 # Show available commands
 help:
 	@echo "Available commands:"
-	@echo "  make self-play [CYCLE=N]"
-	@echo "  make train [CYCLE=N] [ARGS=\"--learning_rate 0.001\"]"
-	@echo "  make analyze [CYCLE=N]"
-	@echo "  make debug [CYCLE=N]"
-	@echo "  make arena [CANDIDATE_CYCLE=N] [BASELINE_CYCLE=M]"
 	@echo ""
-	@echo "Code Quality:"
-	@echo "  lint, lint-fix, format, clean, all"
+	@echo "  Self-Play & Training:"
+	@echo "    make self-play [CYCLE=N] [CONFIG=phaseC_c2]"
+	@echo "    make train [CYCLE=N] [CONFIG=phaseC_c2] [ARGS=\"--learning_rate 0.001\"]"
+	@echo ""
+	@echo "  Analysis & Evaluation:"
+	@echo "    make analyze [CYCLE=N]"
+	@echo "    make debug [CYCLE=N]"
+	@echo "    make arena [CANDIDATE_CYCLE=N] [BASELINE_CYCLE=M]"
+	@echo ""
+	@echo "  Code Quality:"
+	@echo "    make lint          # Check code with ruff"
+	@echo "    make lint-fix       # Auto-fix linting issues"
+	@echo "    make format         # Format code with ruff and black"
+	@echo "    make clean          # Clean checkpoints and logs"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make train CYCLE=2                    # Train cycle 2 with auto-selected config"
+	@echo "  make train CYCLE=2 CONFIG=phaseC_c2    # Train cycle 2 with explicit config"
+	@echo "  make self-play CYCLE=2                 # Run self-play for cycle 2"
+	@echo "  make analyze CYCLE=2                   # Analyze cycle 2 self-play data"
 
 # --- Core Workflow ---
 self-play:
-	python cli/self_play/self_play_main.py --cycle $(CYCLE) $(ARGS)
+	python cli/self_play/self_play_main.py --cycle $(CYCLE) --config $(CONFIG) $(ARGS)
 
 train:
-	python cli/train/train_loop_main.py --cycle $(CYCLE) $(ARGS)
+	python cli/train/train_loop_main.py --cycle $(CYCLE) --config $(CONFIG) $(ARGS)
 
 analyze:
-	python cli/self_play/analyze_jsonl.py --cycle $(CYCLE)
+	PYTHONPATH=. python cli/self_play/analyze_jsonl.py --cycle $(CYCLE)
 
 debug:
 	@echo "Running debug checks for CYCLE=$(CYCLE)"

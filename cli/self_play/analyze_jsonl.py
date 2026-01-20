@@ -67,6 +67,10 @@ def main():
                 elif isinstance(lm, list):
                     n_legal = sum(1 for x in lm if x)
 
+            # Skip if entropy is null (can happen due to numerical issues)
+            if rec["entropy_pi_mcts"] is None:
+                continue
+            
             H_raw = float(rec["entropy_pi_mcts"])
             if mv < args.tau_cutoff_plies:
                 cur_game_early_raw.append(H_raw)
@@ -96,6 +100,10 @@ def main():
     total = len(early_medians_raw)
 
     def iqr(xs):
+        if not xs:
+            return (float("nan"), float("nan"), float("nan"))
+        # Filter out NaN values before computing percentiles
+        xs = [x for x in xs if not np.isnan(x)]
         if not xs:
             return (float("nan"), float("nan"), float("nan"))
         q1, med, q3 = np.percentile(xs, [25, 50, 75])

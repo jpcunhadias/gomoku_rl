@@ -161,10 +161,21 @@ class MCTS:
             best_action = random.choice(best_actions)
             return {a: 1.0 if a == best_action else 0.0 for a in counts}
 
-        counts_arr = np.array(list(counts.values()), dtype=np.float32)
+        counts_arr = np.array(list(counts.values()), dtype=np.float64)
         actions = list(counts.keys())
-        counts_arr = np.power(counts_arr, 1.0 / temp)
-        probs = counts_arr / np.sum(counts_arr)
+        
+        # Use log-space to avoid overflow: log(count^(1/T)) = log(count)/T
+        exponent = 1.0 / temp
+        if exponent > 10:  # Would cause overflow with large counts
+            log_counts = np.log(np.maximum(counts_arr, 1e-10))
+            log_probs = log_counts / temp
+            log_probs -= np.max(log_probs)  # Numerical stability
+            probs = np.exp(log_probs)
+            probs = probs / np.sum(probs)
+        else:
+            counts_arr = np.power(counts_arr, exponent)
+            probs = counts_arr / np.sum(counts_arr)
+        
         return dict(zip(actions, probs))
 
     def root_visit_stats(self):

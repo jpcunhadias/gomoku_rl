@@ -9,9 +9,12 @@ def _inline_default_config() -> SimpleNamespace:
     return _c1()
 
 
-def get_config() -> SimpleNamespace:
-    profile = os.getenv("CFG_PROFILE", "").strip()
-    if profile:
-        mod = import_module(f"configs.{profile}")
-        return mod.get_config()
+def get_config(name: str = None) -> SimpleNamespace:
+    config_name = name or os.getenv("CFG_PROFILE", "").strip()
+    if config_name:
+        try:
+            mod = import_module(f"configs.{config_name}")
+            return mod.get_config()
+        except ImportError:
+            print(f"Warning: Config profile '{config_name}' not found. Falling back to default.")
     return _inline_default_config()

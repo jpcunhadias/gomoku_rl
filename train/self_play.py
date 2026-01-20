@@ -24,7 +24,7 @@ from train.diversity_manager import DiversityManager
 from train.replay_buffer import ReplayBuffer
 from train.sample_logger import SampleLogger
 from train.schema import SampleV2
-from utils.paths import cycle_paths, save_config, save_meta, save_json
+from utils.paths import cycle_paths, save_config, save_json, save_meta
 
 # Configure logging
 logging.basicConfig(
@@ -155,7 +155,9 @@ class SelfPlayRunner:
                 board_size = board.board_size
                 pi_arr = np.zeros((board_size, board_size), dtype=np.float32)
                 for move, prob in visit_probs.items():
-                    r, c = move if isinstance(move, tuple) else board.index_to_move(move)
+                    r, c = (
+                        move if isinstance(move, tuple) else board.index_to_move(move)
+                    )
                     pi_arr[r, c] = prob
                 pi = torch.from_numpy(pi_arr)
 
@@ -183,10 +185,15 @@ class SelfPlayRunner:
                 canon_hash = minhash_symmetries(state_canon)
 
                 alpha_eff = None
-                if move_number == 0 and getattr(
-                    current_player, "add_dirichlet_noise", False
-                ):
+                eps_eff = 0.0
+                if getattr(current_player, "add_dirichlet_noise", False) and root_noise:
                     alpha_eff = current_player.get_dirichlet_alpha(board)
+                    # Log the actual epsilon used (root epsilon at move 0, else regular)
+                    eps_eff = (
+                        current_player.dirichlet_epsilon_root
+                        if move_number == 0
+                        else current_player.dirichlet_epsilon
+                    )
 
                 root_cs = getattr(current_player.mcts, "last_depth_cs", [])
                 rec = SampleV2(
@@ -201,7 +208,7 @@ class SelfPlayRunner:
                     if root_cs
                     else getattr(current_player.mcts, "c_puct", 1.5),
                     dirichlet_alpha=alpha_eff if alpha_eff is not None else 0.0,
-                    dirichlet_eps=getattr(current_player, "dirichlet_epsilon", 0.25),
+                    dirichlet_eps=eps_eff,
                     entropy_pi_mcts=h_mcts,
                     entropy_pi_net=h_net,
                     kl_net_mcts=kl_nm,
@@ -223,8 +230,12 @@ class SelfPlayRunner:
                 if move_number < tau_cutoff:
                     early_entropies.append(float(h_mcts))
 
-                if move_number < 3:
-                    topk = torch.topk(pi.view(-1), k=min(5, pi.numel())).values.sum().item()
+                if move_number < tau_cutoff:
+                    topk = (
+                        torch.topk(pi.view(-1), k=min(5, pi.numel()))
+                        .values.sum()
+                        .item()
+                    )
                     stats = current_player.mcts.root_visit_stats() or {}
                     sched = getattr(current_player.mcts, "last_depth_cs", [])
                     root_c = (
@@ -259,11 +270,22 @@ class SelfPlayRunner:
                     open5_key = minhash_symmetries(state_canon5)
                     is_repeat = open5_key in self.recent_open5_keys
 
-                    sp_block_opening_repeats = getattr(self.config, "sp_block_opening_repeats", True)
-                    if sp_block_opening_repeats and not self.opening_guard_disabled and is_repeat and not force_uniform_root:
+                    sp_block_opening_repeats = getattr(
+                        self.config, "sp_block_opening_repeats", True
+                    )
+                    if (
+                        sp_block_opening_repeats
+                        and not self.opening_guard_disabled
+                        and is_repeat
+                        and not force_uniform_root
+                    ):
                         self.opening_restarts += 1
                         opening_memory_hit = 1
-                        if self.games_played_in_batch > 10 and (self.opening_restarts / self.games_played_in_batch) > 0.2:
+                        if (
+                            self.games_played_in_batch > 10
+                            and (self.opening_restarts / self.games_played_in_batch)
+                            > 0.2
+                        ):
                             self.opening_guard_disabled = True
                         force_uniform_root = True
                         break
@@ -349,8 +371,12 @@ class SelfPlayRunner:
             getattr(self.config, "tau_early_plies", None) if self.config else None
         )
 
-        if tau_early_plies and move_number in tau_early_plies:
-            return float(tau_early_plies[move_number])
+        if tau_early_plies:
+            # Handle both int and str keys (JSON serialization converts int keys to str)
+            if move_number in tau_early_plies:
+                return float(tau_early_plies[move_number])
+            elif str(move_number) in tau_early_plies:
+                return float(tau_early_plies[str(move_number)])
 
         # Fallback to original behavior
         if move_number < cutoff:
@@ -407,7 +433,7 @@ def create_players(
         "c_puct": config.c_puct,
         "n_simulations": n_simulations,
         "use_rave": config.use_rave,
-        "c_puct_schedule": getattr(config, "c_puct_schedule", {"enabled": False}),
+        "c_puct_schedule": {"enabled": False},
     }
 
     player1 = MCTSPlayer(MCTS(**mcts_kwargs), **player_kwargs)
@@ -426,6 +452,10 @@ def run_selfplay_pipeline(
     cycle = int(getattr(config, "cycle", 1))
     paths = cycle_paths(cycle)
     prev_paths = cycle_paths(cycle - 1)
+    
+    # Ensure c_puct_schedule is disabled in saved config (self-play never uses it)
+    config.c_puct_schedule = {"enabled": False}
+    
     save_config(config, paths["config"])
     t0 = time.time()
 
@@ -456,15 +486,15 @@ def run_selfplay_pipeline(
                 f"Seeding new buffer from previous cycle buffer: {prev_buf_path}"
             )
             prev = ReplayBuffer.load(prev_buf_path)
-            
+
             # Seed with 25% of the buffer capacity from the tail of the previous buffer
             seed_fraction = 0.25
             seed_count = int(config.replay_buffer_size * seed_fraction)
             tail_n = min(seed_count, len(prev))
-            
+
             buffer = ReplayBuffer(max_size=config.replay_buffer_size)
             buffer.add(prev.buffer[-tail_n:])
-            
+
             # Shuffle the newly seeded buffer
             logging.info(f"Shuffling buffer with {len(buffer)} seeded samples.")
             buffer.shuffle()
@@ -476,13 +506,15 @@ def run_selfplay_pipeline(
                     meta = json.load(f)
             else:
                 meta = {}
-            
-            meta.update({
-                "seeded_from_cycle": cycle - 1,
-                "seed_count": tail_n,
-                "seed_fraction": tail_n / config.replay_buffer_size,
-                "seed_selection": "tail_uniform",
-            })
+
+            meta.update(
+                {
+                    "seeded_from_cycle": cycle - 1,
+                    "seed_count": tail_n,
+                    "seed_fraction": tail_n / config.replay_buffer_size,
+                    "seed_selection": "tail_uniform",
+                }
+            )
             save_json(meta, meta_path)
 
         else:
@@ -548,7 +580,9 @@ def run_selfplay_pipeline(
             opening_restarts=runner.opening_restarts,
             opening_memory_size=len(runner.recent_open5_keys),
             uniform_root_p=getattr(config, "sp_uniform_root_p", 0.1),
-            opening_guard_disabled_due_to_high_restart_rate=1 if runner.opening_guard_disabled else 0,
+            opening_guard_disabled_due_to_high_restart_rate=1
+            if runner.opening_guard_disabled
+            else 0,
         ),
     }
 

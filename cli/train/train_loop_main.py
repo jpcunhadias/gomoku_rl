@@ -1,68 +1,20 @@
-import argparse
 import os
 import time
-from types import SimpleNamespace
 
 import torch
 
+from cli.utils import get_config_and_override
 from model.policy_value_net import PolicyValueNet
-from train.config import get_config
 from train.replay_buffer import ReplayBuffer
 from train.train_loop import run_training
-from utils.paths import cycle_paths, save_config, save_json, save_meta, hash_config
+from utils.paths import cycle_paths, hash_config, save_config, save_json, save_meta
 from utils.seeding import set_global_seed
 
 
 def main() -> None:
-    # First, load the base config to dynamically create CLI arguments
-    base_cfg = get_config()
-
-    ap = argparse.ArgumentParser(
+    cfg, overrides, args = get_config_and_override(
         description="Run the training loop with optional hyperparameter overrides."
     )
-    ap.add_argument(
-        "--cycle", type=int, required=True, help="Experiment cycle id (int)"
-    )
-
-    # Dynamically add arguments for each parameter in the base config
-    for key, value in vars(base_cfg).items():
-        if key == "cycle":
-            continue
-        arg_type = type(value)
-        if arg_type == bool:
-            # Handle boolean flags properly
-            ap.add_argument(
-                f"--{key}",
-                action=argparse.BooleanOptionalAction,
-                default=None, # Default to None to distinguish from user-provided False
-                help=f"Override {key} (default: {value})",
-            )
-        elif isinstance(value, (dict, SimpleNamespace, list)):
-            pass
-        else:
-            ap.add_argument(
-                f"--{key}",
-                type=arg_type,
-                default=None,
-                help=f"Override {key} (default: {value})",
-            )
-
-    args = ap.parse_args()
-
-    # Start with the base config
-    cfg = base_cfg
-    overrides = {}
-
-    # Apply overrides from CLI arguments
-    for key in vars(base_cfg).keys():
-        if hasattr(args, key):
-            cli_value = getattr(args, key)
-            if cli_value is not None:
-                original_value = getattr(cfg, key)
-                if cli_value != original_value:
-                    print(f"[Config Override] {key}: {original_value} -> {cli_value}")
-                    setattr(cfg, key, cli_value)
-                    overrides[key] = {"from": original_value, "to": cli_value}
 
     # Set the global seed for reproducibility
     set_global_seed(cfg.seed)
@@ -118,12 +70,24 @@ def main() -> None:
     else:
         raise FileNotFoundError(f"No replay buffer at {buffer_path}")
 
-    # choose resume checkpoint
+    # choose resume checkpoint (check current cycle first, then previous cycle)
     resume_path = None
+    prev_paths = cycle_paths(args.cycle - 1) if args.cycle > 1 else None
+
+    # Check current cycle models first
     if os.path.exists(paths["model_last"]):
         resume_path = paths["model_last"]
     elif os.path.exists(paths["model_best"]):
         resume_path = paths["model_best"]
+    # Fall back to previous cycle models (for rebooted cycles)
+    elif prev_paths and os.path.exists(prev_paths["model_last"]):
+        resume_path = prev_paths["model_last"]
+        print(f"[Note] No Cycle {args.cycle} model found, loading from previous cycle")
+    elif prev_paths and os.path.exists(prev_paths["model_best"]):
+        resume_path = prev_paths["model_best"]
+        print(f"[Note] No Cycle {args.cycle} model found, loading from previous cycle")
+    else:
+        print("[Note] No checkpoint found, starting training from scratch")
 
     best_value_loss = float("inf")
     if resume_path:
