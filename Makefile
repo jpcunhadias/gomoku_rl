@@ -30,7 +30,7 @@ CYCLE_MODEL_LAST := checkpoints/models/c1_cycle$(CYCLE)_last.pth
 ARGS ?=
 
 .PHONY: help lint lint-fix format format-all clean all \
-        self-play train analyze debug arena
+        self-play train analyze debug arena test
 
 # Set PYTHONPATH to current directory (project root)
 export PYTHONPATH := $(shell pwd)
@@ -49,9 +49,10 @@ help:
 	@echo "    make arena [CANDIDATE_CYCLE=N] [BASELINE_CYCLE=M]"
 	@echo ""
 	@echo "  Code Quality:"
-	@echo "    make lint          # Check code with ruff"
+	@echo "    make test           # Run the test suite (uv run pytest)"
+	@echo "    make lint           # Check code with ruff"
 	@echo "    make lint-fix       # Auto-fix linting issues"
-	@echo "    make format         # Format code with ruff and black"
+	@echo "    make format         # Format code with ruff"
 	@echo "    make clean          # Clean checkpoints and logs"
 	@echo ""
 	@echo "Examples:"
@@ -62,29 +63,29 @@ help:
 
 # --- Core Workflow ---
 self-play:
-	python cli/self_play/self_play_main.py --cycle $(CYCLE) --config $(CONFIG) $(ARGS)
+	uv run python cli/self_play/self_play_main.py --cycle $(CYCLE) --config $(CONFIG) $(ARGS)
 
 train:
-	python cli/train/train_loop_main.py --cycle $(CYCLE) --config $(CONFIG) $(ARGS)
+	uv run python cli/train/train_loop_main.py --cycle $(CYCLE) --config $(CONFIG) $(ARGS)
 
 analyze:
-	PYTHONPATH=. python cli/self_play/analyze_jsonl.py --cycle $(CYCLE)
+	PYTHONPATH=. uv run python cli/self_play/analyze_jsonl.py --cycle $(CYCLE)
 
 debug:
 	@echo "Running debug checks for CYCLE=$(CYCLE)"
-	python debug/value_head_check.py \
+	uv run python debug/value_head_check.py \
 	  --checkpoint $(CYCLE_MODEL_LAST) \
 	  --buffer $(CYCLE_BUFFER)
-	python debug/policy_head_check.py \
+	uv run python debug/policy_head_check.py \
 	  --checkpoint $(CYCLE_MODEL_LAST) \
 	  --buffer $(CYCLE_BUFFER)
-	python debug/training_smoke_check.py \
+	uv run python debug/training_smoke_check.py \
 	  --checkpoint $(CYCLE_MODEL_LAST) \
 	  --buffer $(CYCLE_BUFFER)
 
 arena:
 	@echo "Comparing CANDIDATE=$(CANDIDATE_MODEL) vs BASELINE=$(BASELINE_MODEL)"
-	PYTHONPATH=. python scripts/arena.py \
+	PYTHONPATH=. uv run python scripts/arena.py \
 	  --baseline $(BASELINE_MODEL) \
 	  --candidate $(CANDIDATE_MODEL) \
 	  --games 200 --sims 800 --seed 42 \
@@ -92,16 +93,18 @@ arena:
 	  --cycle $(CANDIDATE_CYCLE) \
 	  $(ARGS)
 
+test:
+	uv run pytest
+
 # --- Code Quality ---
 lint:
-	ruff check .
+	uv run ruff check .
 
 lint-fix:
-	ruff check . --fix
+	uv run ruff check . --fix
 
 format:
-	ruff format .
-	black .
+	uv run ruff format .
 
 # --- Cleanup ---
 clean:

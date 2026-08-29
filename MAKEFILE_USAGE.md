@@ -112,7 +112,7 @@ make train CYCLE=2 ARGS="--learning_rate 0.0005 --batch_size 256 --epochs 15"
 make debug CYCLE=2
 
 # Or run individual checks
-python debug/value_head_check.py --checkpoint checkpoints/models/c1_cycle2_last.pth --buffer checkpoints/buffers/replay_c1_cycle2.pkl
+uv run python debug/value_head_check.py --checkpoint checkpoints/models/c1_cycle2_last.pth --buffer checkpoints/buffers/replay_c1_cycle2.pkl
 ```
 
 ## Environment Variables
@@ -122,7 +122,7 @@ The Makefile sets `PYTHONPATH` automatically, so all Python commands work correc
 ## Troubleshooting
 
 **Issue**: `ModuleNotFoundError: No module named 'utils.paths'`
-- **Solution**: The Makefile sets PYTHONPATH automatically. If you run commands directly, use: `PYTHONPATH=. python ...`
+- **Solution**: The Makefile sets PYTHONPATH automatically. If you run commands directly, use: `PYTHONPATH=. uv run python ...`
 
 **Issue**: Config not found
 - **Solution**: Make sure the config file exists in `configs/` directory. Check with: `ls configs/phaseC_c*.py`

@@ -11,8 +11,8 @@ This directory contains all project documentation organized by lifecycle stage.
 ## Current Cycle (Cycle 2)
 
 Active documentation in `current/`:
-- `CYCLE2_DATA_ISSUE_DIAGNOSIS.md` - Current issue being investigated
-- `debug_report.md` - Latest debug check output
+- `CYCLE2_V4_PENDING.md` - **Start here.** The actual frontier: v4 config is written, not yet run.
+- `debug_report.md` - Latest debug check output (from the v2 model — predates v3/v4)
 
 ## Workflow
 

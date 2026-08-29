@@ -9,6 +9,7 @@ logs/*
 
 *.pyc
 venv/
+.venv/
 data/
 models/
 .idea/

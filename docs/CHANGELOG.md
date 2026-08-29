@@ -31,7 +31,7 @@ This document consolidates the history of all training cycles, their issues, fix
 
 ## Cycle 2
 
-### Status: In Progress (v3 - Data Issue Identified)
+### Status: In Progress (v4 config written, not yet run)
 
 ### Phase 1: Initial Success (v1)
 - **Achievement**: Excellent exploration metrics achieved
@@ -62,10 +62,29 @@ This document consolidates the history of all training cycles, their issues, fix
 - Model correctly learns from training data - if data is uniform, model will be uniform
 - Must check MCTS target policies, not just model policies
 
+### Phase 4: Overcorrection Found (v3 results) and Rebalance (v4)
+- **v3 was run** (self-play regenerated with the reduced-exploration config, retrained)
+- **Finding**: v3 overcorrected — normalized entropy 0.196 (target 0.45-0.65, now too *sharp*),
+  raw entropy 0.805 (target >2.0, exploration collapsed again)
+- ⚠️ **Provenance note**: these v3 numbers only exist as a code comment in the `phaseC_c2.py`
+  docstring (added when v4 was written). No dedicated validation report or debug-check output
+  was ever committed for v3, unlike v1/v2. Treat them as directionally correct, not verified —
+  worth re-running `make debug` against the v3 buffer/checkpoint if they still exist on the
+  server, to get a real report before trusting them as a sweep data point.
+- **Solution (v4)**: split the difference between v2 (too uniform) and v3 (too sharp):
+  - tau_early_plies[0]: 0.70 → 0.78
+  - tau_early_plies[1]: 0.42 → 0.46
+  - dirichlet_epsilon_root: 0.45 → 0.50
+  - dirichlet_epsilon: 0.08 → 0.10
+  - c_puct_schedule c0: 0.6 → 0.65
+- **Status**: config written (`configs/phaseC_c2.py`), **never run**. This is the actual
+  frontier of the project as of the last "wip" commit (2026-01-20) — everything above this line
+  happened; nothing below it has.
+
 ### Current Status
-- Config updated (v3) with reduced exploration
-- Ready to regenerate self-play data
-- Expected: MCTS normalized entropy → 0.45-0.65, model will follow
+- v4 config is ready in `configs/phaseC_c2.py`
+- Not yet run: regenerate Cycle 2 self-play with v4, retrain, re-check MCTS target entropy
+- Expected: MCTS normalized entropy → 0.45-0.65 AND raw entropy >2.0 simultaneously
 
 ---
 
@@ -82,7 +101,12 @@ This document consolidates the history of all training cycles, their issues, fix
 
 ### Cycle 2 (v2) → Cycle 2 (v3)
 - Reduced exploration parameters moderately
-- Goal: Balance exploration and policy sharpness
+- Result: overcorrected — too sharp, exploration collapsed (see Phase 4; unverified provenance)
+
+### Cycle 2 (v3) → Cycle 2 (v4)
+- Split the difference between v2 and v3 on every knob
+- Goal: raw entropy >2.0 AND normalized entropy 0.45-0.65 at the same time
+- Not yet run
 
 ---
 
@@ -99,8 +123,9 @@ This document consolidates the history of all training cycles, their issues, fix
 
 ## Next Steps
 
-- Regenerate Cycle 2 self-play with v3 config
-- Validate MCTS target normalized entropy is in 0.45-0.65 range
-- Train model and verify normalized entropy improves
-- Mark Cycle 2 as successful when targets met
+- Regenerate Cycle 2 self-play with v4 config (`configs/phaseC_c2.py`)
+- Run `debug/check_mcts_target_entropy.py` and validate normalized entropy is in the
+  0.45-0.65 range *and* raw entropy is >2.0 (both, not just one — see Phase 4)
+- Train model and verify normalized entropy holds after training
+- Mark Cycle 2 as successful when targets met; only then move `docs/current/` → `docs/archive/`
 

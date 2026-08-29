@@ -59,8 +59,9 @@ gomoku_rl/
 
 ### Requirements
 
-- Python 3.8+
-- CUDA-capable GPU (recommended)
+- [`uv`](https://docs.astral.sh/uv/) — this project is managed with `uv`, not raw `pip`/`venv`
+- Python 3.12 or 3.13 (pinned via `.python-version`; `uv` will fetch it automatically)
+- A CUDA-capable GPU is recommended for actual training runs — see "Where training runs" below
 
 ### Setup
 
@@ -69,13 +70,27 @@ gomoku_rl/
 git clone <repository-url>
 cd gomoku_rl
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Installs the pinned Python version, creates .venv, installs all dependencies
+uv sync
 ```
+
+There's no `requirements.txt` or manually-activated `venv` anymore — every command below runs
+through `uv run ...` (or `make ...`, which already does this for you), so the right interpreter
+and dependencies are always used without activating anything by hand.
+
+### Where training runs
+
+Self-play and training are **not run on a laptop**. They run on a home server over SSH
+(`home-lan` on the LAN, `home-vpn` over Tailscale — see the SSH config). This Mac is for
+editing code, running the test suite (`make test`), and reading/writing docs. Before running
+anything real, make sure the server's checkout of this repo is on the same branch and has run
+`uv sync` too.
+
+### Orientation
+
+Not sure where the project currently stands? Start at [`docs/README.md`](docs/README.md), then
+[`docs/current/`](docs/current/) for what's actively in progress and
+[`docs/CHANGELOG.md`](docs/CHANGELOG.md) for how it got there.
 
 ## Usage
 
@@ -182,21 +197,26 @@ make lint-fix
 # Format code
 make format
 
-# Run all code quality tools
+# Lint-fix + format together
 make all
 ```
+
+As of this writing `make lint` reports ~250 pre-existing issues (mostly import ordering and
+`pyupgrade` hints) from before `ruff` was wired into `uv`/pre-commit — none block tests or
+training, but `make lint-fix` hasn't been run repo-wide yet since that's a separate, larger
+cleanup than this pass covered.
 
 ## Testing
 
 ```bash
 # Run all tests
-pytest
+make test          # or: uv run pytest
 
-# Run specific test file
-pytest tests/test_gomoku.py
+# Run a specific test file
+uv run pytest tests/test_mcts.py
 
 # Run with coverage
-pytest --cov=.
+uv run pytest --cov=.
 ```
 
 ## Checkpoints and Artifacts
