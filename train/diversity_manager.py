@@ -73,8 +73,10 @@ class DiversityManager:
                 accepted_samples.append((s, m, z))
                 accepted_metas.append((i, move_no, z_meta))
             else:
-                denom = max(10 * tgt, 1)
-                p = 1.0 / denom
+                # tgt == 0 means the bucket is deliberately excluded (e.g. draws
+                # in default_targets) -- it must never be admitted, not admitted
+                # at 100% as the old `1.0 / max(10 * tgt, 1)` formula did.
+                p = 0.0 if tgt <= 0 else 1.0 / (10 * tgt)
                 if self.rng.random() < p:
                     self.counts[key] += 1
                     accepted_samples.append((s, m, z))
