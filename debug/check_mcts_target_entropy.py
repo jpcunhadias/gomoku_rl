@@ -11,6 +11,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+import argparse
+
 import torch
 import numpy as np
 import math
@@ -21,8 +23,16 @@ def entropy(p):
     q = np.clip(p, eps, 1.0)
     return float(-(q * np.log(q)).sum())
 
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument(
+    "--buffer",
+    default="checkpoints/buffers/replay_c1_cycle2.pkl",
+    help="Path to the replay buffer .pkl to check",
+)
+args = parser.parse_args()
+
 # Load buffer
-buffer = ReplayBuffer.load('checkpoints/buffers/replay_c1_cycle2.pkl')
+buffer = ReplayBuffer.load(args.buffer)
 print(f'Buffer size: {len(buffer)} samples')
 print()
 
@@ -76,11 +86,6 @@ else:
     print(f'   Median normalized entropy: {median_entropy:.3f} (target: 0.45-0.65)')
     print(f'   If model entropy is still high, training issue.')
 
-print()
-print('=== COMPARISON WITH MODEL ===')
-print('From debug report:')
-print('  Model normalized entropy: mean=0.929, median=0.970')
-print('  KL divergence: mean=0.012 (very low - model matches targets well)')
 print()
 if median_entropy > 0.65:
     print('CONCLUSION: Training data is the problem!')
