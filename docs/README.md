@@ -8,11 +8,14 @@ This directory contains all project documentation organized by lifecycle stage.
 - **`current/`** - Active documentation for the current cycle being worked on
 - **`archive/`** - Historical documentation from completed cycles
 
-## Current Cycle (Cycle 2)
+## Current status
 
-Active documentation in `current/`:
-- `CYCLE2_V4_PENDING.md` - **Start here.** The actual frontier: v4 config is written, not yet run.
-- `debug_report.md` - Latest debug check output (from the v2 model — predates v3/v4)
+Cycle 2 (v4) is done and validated — see `archive/CYCLE2_V4_VALIDATION_AND_ARENA.md` for the
+full result (Cycle 2 beats Cycle 1: 100W-0L-100D) and `archive/CYCLE1_COLDSTART_MECHANISM.md`
+for why v4 only worked once there was a trained model to search with. No cycle is currently
+in progress — `current/` is empty. Open items for whoever picks this up next: the value-head
+overconfidence flagged in Cycle 2's debug checks, the planned tau/dirichlet_epsilon sweep, and
+DVC/MLflow backup wiring (see `CHANGELOG.md`'s "Next Steps").
 
 ## Workflow
 

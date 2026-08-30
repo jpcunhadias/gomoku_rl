@@ -27,11 +27,23 @@ This document consolidates the history of all training cycles, their issues, fix
 - Need to handle both key types in config loading
 - Exploration parameters need to be more aggressive than initially thought
 
+### Addendum: regenerated on a fresh server, cold-start entropy mechanism found
+Re-run from scratch on a new server with no prior checkpoints (200 games, `DiversityManager`
+zero-quota bug fixed — see below). Median normalized entropy 0.961, same too-uniform pattern as
+Cycle 2 v2, and seeding Cycle 2's v4 exploration params onto Cycle 1 made it slightly *worse*
+(0.968). Investigated why instead of continuing to guess parameters: a fresh untrained network's
+policy prior and value estimates are both nearly flat (prior normalized entropy 0.9989, value
+estimates across 20 candidate moves span only -0.0129 to -0.0006). With no real Q/P signal, no
+exploration-parameter tuning can produce a genuinely sharp target — the 0.45-0.65 entropy target
+is only meaningful once a network has real learned signal, i.e. from Cycle 2 onward, not for
+Cycle 1's own cold-start self-play. Trained on the Cycle 1 buffer as-is instead of chasing this
+further. Full writeup: `docs/archive/CYCLE1_COLDSTART_MECHANISM.md`.
+
 ---
 
 ## Cycle 2
 
-### Status: In Progress (v4 config written, not yet run)
+### Status: ✅ Completed — v4 validated, beats Cycle 1 in arena (100W-0L-100D)
 
 ### Phase 1: Initial Success (v1)
 - **Achievement**: Excellent exploration metrics achieved
@@ -81,10 +93,27 @@ This document consolidates the history of all training cycles, their issues, fix
   frontier of the project as of the last "wip" commit (2026-01-20) — everything above this line
   happened; nothing below it has.
 
+### Phase 5: v4 run against a trained Cycle 1 model — validated
+Self-play with v4 config, now against the *trained* Cycle 1 model (not a fresh network) and
+seeded 25% from Cycle 1's buffer: 200 games, 12,742 samples, draws correctly excluded.
+**Median normalized entropy 0.590 — in the 0.45-0.65 target band**, on the identical config that
+scored 0.968 against Cycle 1's cold-start network (see the Cycle 1 addendum above). Direct
+confirmation of the cold-start mechanism finding.
+
+Trained 15 epochs (exit 0, value loss 0.0597). Debug checks: policy head normalized entropy
+median 0.628 — **first time this checkbox has passed**. But value head shows new overconfidence:
+pre-tanh saturation 43.8% (was 10.5%, threshold <20%), Brier 0.677 (was 0.609), ECE 0.226 (was
+0.136) — flagged, not yet fixed.
+
+**Arena vs. Cycle 1**: 200 games, 800 sims/move, ~2.5hr. **100 wins / 0 losses / 100 draws,
+decisive win rate 1.0 (Wilson95 [0.963, 1.0])**. Cycle 1 never won a single game. Notable color
+pattern: candidate won 100/100 as Black, drew (never lost) 100/100 as White — first-move
+advantage looks strong on this board, and Cycle 1 never converts it even when it gets it.
+
+Full writeup: `docs/archive/CYCLE2_V4_VALIDATION_AND_ARENA.md`.
+
 ### Current Status
-- v4 config is ready in `configs/phaseC_c2.py`
-- Not yet run: regenerate Cycle 2 self-play with v4, retrain, re-check MCTS target entropy
-- Expected: MCTS normalized entropy → 0.45-0.65 AND raw entropy >2.0 simultaneously
+- Cycle 2 is done and validated. See "Next Steps" below for what's open.
 
 ---
 
@@ -106,7 +135,7 @@ This document consolidates the history of all training cycles, their issues, fix
 ### Cycle 2 (v3) → Cycle 2 (v4)
 - Split the difference between v2 and v3 on every knob
 - Goal: raw entropy >2.0 AND normalized entropy 0.45-0.65 at the same time
-- Not yet run
+- Run against the trained Cycle 1 model: **succeeded** (median normalized entropy 0.590)
 
 ---
 
@@ -118,14 +147,21 @@ This document consolidates the history of all training cycles, their issues, fix
 4. **Version configs** when making significant changes
 5. **Keep cycle checkpoints** for seeding future cycles
 6. **Document issues and solutions** for future reference
+7. **The entropy gate only means something once a network has real learned signal** — don't
+   apply it to a from-scratch cycle's own cold-start self-play (see the Cycle 1 addendum)
+8. **Report win rates split by color, not just aggregate**, in any arena comparison — first-move
+   advantage looks strong on this board (see Cycle 2 Phase 5)
 
 ---
 
 ## Next Steps
 
-- Regenerate Cycle 2 self-play with v4 config (`configs/phaseC_c2.py`)
-- Run `debug/check_mcts_target_entropy.py` and validate normalized entropy is in the
-  0.45-0.65 range *and* raw entropy is >2.0 (both, not just one — see Phase 4)
-- Train model and verify normalized entropy holds after training
-- Mark Cycle 2 as successful when targets met; only then move `docs/current/` → `docs/archive/`
+1. **Value-head overconfidence** (Cycle 2: pre-tanh saturation 43.8%, degraded Brier/ECE) —
+   investigate before trusting Cycle 3+ value predictions or using this model as a sweep
+   evaluator. Candidate fix: revisit the value-head weight-decay/LR split in
+   `cli/train/train_loop_main.py`.
+2. **The small parameter sweep** (tau, dirichlet_epsilon; 3-4 settings each, c_puct fixed) —
+   now unblocked, with a validated Cycle 1→2 baseline pair to compare against.
+3. **DVC/MLflow backup wiring** — still parked; revisit once the sweep starts producing multiple
+   comparable runs worth not losing.
 
