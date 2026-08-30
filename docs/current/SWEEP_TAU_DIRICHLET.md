@@ -187,4 +187,17 @@ strength ordering **31 < 50 < 42** is now well-supported by direct and indirect 
 **Tentative conclusion**: within the tested range (0.75x-1.25x of v4), more tau (more stochastic
 early-game exploration, specifically at ply 0, since plies 1-2 collapse regardless — see above)
 produces a measurably stronger model. Not yet tested: whether this keeps improving beyond 1.25x,
-or whether 1.25x is near a ceiling — would need another point further out (e.g. 1.5x) to know.
+or whether 1.25x is near a ceiling.
+
+### Point 61 (tau 1.5x) — testing whether the trend continues
+
+`configs/sweep_tau_150.py`, cycle 61 (non-adjacent to everything used so far). tau_early_plies
+= {0:1.17, 1:0.69, 2:0.42} — note ply 0's exponent (1/1.17 ≈ 0.855) is now *below* 1, an actual
+flattening transform rather than sharpening (v4/31/42 were all exponent >1, i.e. some degree of
+sharpening). Still the same "scale v4 by X" family, but worth flagging as a slightly different
+regime at ply 0 specifically.
+
+Scoped to one arena comparison for this point: **61 vs. 42** (the current strength leader, both
+clean buffers) — directly tests whether pushing tau further keeps helping or whether 1.25x is
+near a ceiling. Not also run against Cycle 2, to keep compute reasonable; can be added later if
+wanted for the results table.
