@@ -47,6 +47,7 @@ cp checkpoints/models/c1_cycle2_last.pth checkpoints/models/c1_cycle{N}_last.pth
 make self-play CYCLE={N} CONFIG=sweep_{name}
 make train CYCLE={N} CONFIG=sweep_{name}
 make debug CYCLE={N}
+uv run python debug/check_mcts_target_entropy.py --buffer checkpoints/buffers/replay_c1_cycle{N}.pkl
 uv run python scripts/diagnose_value_head_holdout.py \
     --buffer checkpoints/buffers/replay_c1_cycle{N}.pkl \
     --init_checkpoint checkpoints/models/c1_cycle2_last.pth
@@ -57,10 +58,25 @@ make arena CANDIDATE_CYCLE={N} BASELINE_CYCLE=2 ARGS="--games 100 --sims 400"
 
 Fill in as each point completes.
 
-| Cycle | Axis/scale | Raw entropy (ply0) | Normalized entropy (median) | Held-out Brier | Held-out ECE | Arena vs Cycle 2 (W-L-D) |
+| Cycle | Axis/scale | Normalized entropy (median, MCTS target) | Held-out Brier | Held-out ECE | Held-out sat% | Arena vs Cycle 2 (W-L-D, decisive) |
 |---|---|---|---|---|---|---|
-| 2 (baseline) | 1.0x both | — | 0.590 | 0.548 | 0.138 | — (is the baseline) |
-| 31 | tau 0.75x | | | | | |
+| 2 (baseline) | 1.0x both | 0.590 | 0.548 | 0.138 | 40.0% | — (is the baseline) |
+| 31 | tau 0.75x | **0.045** (severe over-sharp collapse) | 0.124 | 0.046 | 84.9% | **0-50-50 (0% decisive win rate)** |
 | 32 | tau 1.25x | | | | | |
 | 33 | dirichlet 0.75x | | | | | |
 | 34 | dirichlet 1.25x | | | | | |
+
+### Point 31 (tau 0.75x) — read
+
+A striking, coherent result: this model's calibration metrics *look better* than Cycle 2's
+(lower Brier, lower ECE, both on training data and on a genuine held-out split) — but it lost
+every single decisive arena game against Cycle 2 (0 wins, 50 losses, 50 draws; same color pattern
+as the Cycle 1 vs 2 arena — the stronger side only won as Black, never lost even without the
+first-move advantage). The explanation: tau x0.75 collapsed self-play into the same over-sharp
+failure mode as Cycle 2's v3 (normalized entropy 0.045, matching v3's 0.196 in kind if not degree)
+— reduced exploration means self-play visited a much narrower slice of the game tree with high
+confidence, so the model learned to predict outcomes very accurately *for that narrow, homogeneous
+set of positions* (hence the flattering Brier/ECE), but that doesn't transfer to actual strength
+against a genuinely different, more broadly-competent opponent. **Calibration metrics alone can't
+tell you if an exploration setting is good — you need the arena test.** This is exactly why the
+sweep measures both.
