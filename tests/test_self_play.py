@@ -98,7 +98,13 @@ def test_self_play_generates_valid_data(tmp_path):
 
 
 def test_self_play_temperature_effect(tmp_path):
-    """Test that temperature affects move selection."""
+    """Integration smoke test: self-play runs end-to-end at both a low and a high
+    temperature and produces well-formed data either way. This does NOT assert that high
+    temperature produces higher-entropy policies - a single game's handful of samples is too
+    noisy to check that reliably (the previous version of this test tried to and only ever
+    asserted entropy >= 0, which is trivially true and doesn't test the claim at all). The
+    actual temperature-to-entropy relationship is checked deterministically, on fixed visit
+    counts, in tests/test_mcts_extended.py::test_normalize_counts_temperature_effect."""
     model = PolicyValueNet(board_size=8, num_blocks=3)
     model._init_weights()
     evaluator = NeuralEvaluator(model)
@@ -148,24 +154,14 @@ def test_self_play_temperature_effect(tmp_path):
     assert len(buffer_low_temp) > 0
     assert len(buffer_high_temp) > 0
 
-    # Sample policies
-    _, policies_low, _ = buffer_low_temp.sample(min(5, len(buffer_low_temp)))
-    _, policies_high, _ = buffer_high_temp.sample(min(5, len(buffer_high_temp)))
-
-    # High temperature policies should generally be more uniform (higher entropy)
-    # Low temperature policies should be more peaked (lower entropy)
-    def entropy(policy):
-        p = policy.flatten()
-        p = p[p > 0]  # Only non-zero probs
-        return -(p * torch.log(p)).sum().item()
-
-    avg_entropy_low = sum(entropy(p) for p in policies_low) / len(policies_low)
-    avg_entropy_high = sum(entropy(p) for p in policies_high) / len(policies_high)
-
-    # High temp should generally have higher entropy
-    # (Not strict assertion as it depends on the position)
-    assert avg_entropy_low >= 0
-    assert avg_entropy_high >= 0
+    # Every stored policy must actually be a valid probability distribution over the board,
+    # regardless of temperature - this is a real, checkable invariant (unlike "entropy >= 0",
+    # which is true of literally any policy and asserts nothing).
+    _, policies_low, _ = buffer_low_temp.sample(min(10, len(buffer_low_temp)))
+    _, policies_high, _ = buffer_high_temp.sample(min(10, len(buffer_high_temp)))
+    for policy in list(policies_low) + list(policies_high):
+        assert torch.all(policy >= 0)
+        assert abs(policy.sum().item() - 1.0) < 1e-4
 
 
 def test_self_play_game_terminates(tmp_path):

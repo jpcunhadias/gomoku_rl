@@ -149,3 +149,70 @@ def test_tree_reuse():
     # The new root should be the child of the old root
     assert mcts.root == children[action]
     assert mcts.root.parent is None
+
+
+def _normalized_entropy(probs: dict) -> float:
+    values = np.array(list(probs.values()), dtype=np.float64)
+    values = values[values > 1e-12]
+    if len(values) <= 1:
+        return 0.0
+    h = float(-(values * np.log(values)).sum())
+    return h / np.log(len(values))
+
+
+def test_normalize_counts_temperature_effect():
+    """Deterministic version of what tests/test_self_play.py's temperature-effect test was
+    trying (and failing) to assert with real self-play noise: this tests _normalize_counts
+    directly on fixed counts, so the claim is checked exactly rather than hoping randomness
+    cooperates."""
+    mcts = MCTS(evaluator_fn=None, c_puct=1.0)
+    counts = {0: 100, 1: 10, 2: 1}
+
+    low_temp_probs = mcts._normalize_counts(counts, temp=0.3)
+    high_temp_probs = mcts._normalize_counts(counts, temp=2.0)
+
+    for probs in (low_temp_probs, high_temp_probs):
+        assert abs(sum(probs.values()) - 1.0) < 1e-6
+        assert all(p >= 0 for p in probs.values())
+
+    assert _normalized_entropy(low_temp_probs) < _normalized_entropy(high_temp_probs)
+    # Sharper (lower temp) should also concentrate more mass on the most-visited action.
+    assert low_temp_probs[0] > high_temp_probs[0]
+
+
+def test_normalize_counts_near_zero_temp_is_deterministic_argmax():
+    mcts = MCTS(evaluator_fn=None, c_puct=1.0)
+    counts = {0: 5, 1: 20, 2: 3}
+
+    probs = mcts._normalize_counts(counts, temp=1e-4)
+
+    assert probs[1] == 1.0
+    assert probs[0] == 0.0
+    assert probs[2] == 0.0
+
+
+def test_normalize_counts_high_exponent_log_space_path_is_valid():
+    """temp small enough that 1/temp > 10 takes the log-space branch (overflow avoidance
+    for large counts) - never exercised by any other test."""
+    mcts = MCTS(evaluator_fn=None, c_puct=1.0)
+    counts = {0: 500, 1: 50, 2: 5}
+
+    probs = mcts._normalize_counts(counts, temp=0.05)  # exponent = 20
+
+    assert abs(sum(probs.values()) - 1.0) < 1e-6
+    assert not any(np.isnan(p) for p in probs.values())
+    # Still ordered by visit count, just very sharply.
+    assert probs[0] > probs[1] > probs[2]
+
+
+def test_normalize_counts_all_zero_visits_falls_back_to_uniform():
+    """Regression test for a real bug: dividing by sum(counts)==0 used to silently produce
+    NaN probabilities (visible as a RuntimeWarning in every test run before this was fixed)."""
+    mcts = MCTS(evaluator_fn=None, c_puct=1.0)
+    counts = {0: 0, 1: 0, 2: 0}
+
+    probs = mcts._normalize_counts(counts, temp=1.0)
+
+    assert not any(np.isnan(p) for p in probs.values())
+    assert abs(sum(probs.values()) - 1.0) < 1e-6
+    assert probs[0] == probs[1] == probs[2]
