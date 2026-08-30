@@ -1,5 +1,6 @@
 import os
-from typing import Any, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -31,27 +32,24 @@ class AlphaZeroTrainer:
         optimizer: optim.Optimizer,
         replay_buffer: ReplayBuffer,
         config: Any,
+        config_hash: Optional[str] = None, # Added config_hash
         device: str = "cpu",
         best_value_loss: float = float("inf"),
+        save_paths: Optional[Dict[str, Path]] = None,
     ) -> None:
-        """
-        AlphaZero training loop for Gomoku.
-
-        Args:
-            model (PolicyValueNet): Your dual-head model.
-            replay_buffer (ReplayBuffer): Self-play experience buffer.
-            config (Namespace): Should contain batch_size, learning_rate, epochs, steps_per_epoch, save_path.
-            device (str): 'cuda' or 'cpu'.
-        """
         self.model = model.to(device)
         self.optimizer = optimizer
         self.replay_buffer = replay_buffer
         self.config = config
+        self.config_hash = config_hash # Store the hash
         self.device = device
         self.batch_size = config.batch_size
         self.epochs = config.epochs
         self.steps_per_epoch = config.steps_per_epoch
-        self.save_path = config.save_path
+        self.save_paths = save_paths if save_paths else {}
+        self.sidecar_jsonl = str(
+            self.save_paths.get("sp_log", "checkpoints/selfplay/selfplay_v2.jsonl")
+        )
 
         self.policy_loss_fn = nn.KLDivLoss(reduction="batchmean")
         self.value_loss_fn = nn.SmoothL1Loss(beta=1.0)
@@ -77,7 +75,7 @@ class AlphaZeroTrainer:
             from train.stratified_sampler import TARGET_MIX, StratifiedBatchSampler
 
             self.sampler = StratifiedBatchSampler(
-                sidecar_jsonl="checkpoints/selfplay_v2.jsonl",
+                sidecar_jsonl=self.sidecar_jsonl,
                 buffer_len_fn=lambda: len(self.replay_buffer),
                 target_mix=TARGET_MIX,
                 refresh_every=max(1, self.steps_per_epoch // 2),
@@ -92,15 +90,6 @@ class AlphaZeroTrainer:
         value_pred: torch.Tensor,
         target_value: torch.Tensor,
     ) -> Tuple[torch.Tensor, float, float]:
-        """
-        Combines policy and value losses.
-
-        Args:
-            policy_logits (Tensor): Raw logits from policy head.
-            target_policy (Tensor): Target probabilities (π from MCTS).
-            value_pred (Tensor): Scalar value prediction in [-1, 1].
-            target_value (Tensor): Game result encoded as -1 (loss), 0 (draw), 1 (win).
-        """
         target_policy = target_policy.to(torch.float32)
         target_value = target_value.view(-1).to(torch.float32)
 
@@ -113,9 +102,6 @@ class AlphaZeroTrainer:
         return total_loss, policy_loss.item(), value_loss.item()
 
     def train(self, debug: bool = False) -> Tuple[Optional[int], float]:
-        """
-        Main training loop.
-        """
         self.model.train()
 
         loss_log_path = (
@@ -161,7 +147,6 @@ class AlphaZeroTrainer:
                     target_values = target_values.to(self.device)
                 else:
                     idxs = self.sampler.sample_indices(self.batch_size)
-                    # in-place gather from buffer
                     batch = [self.replay_buffer.buffer[i] for i in idxs]
                     states, target_policies, target_values = zip(*batch)
 
@@ -188,7 +173,7 @@ class AlphaZeroTrainer:
 
                     _write_debug_log(
                         value_debug_path,
-                        f"\nEpoch {epoch}, Step {step}:\n"
+                        f"\nEpoch {epoch}, Step {step}:\n" \
                         + "".join(
                             f"  z: {target}, v: {float(pred):.4f}\n"
                             for pred, target in zip(
@@ -207,7 +192,7 @@ class AlphaZeroTrainer:
                 if debug:
                     _write_debug_log(
                         grad_log_path,
-                        f"\nEpoch {epoch}, Step {step}:\n"
+                        f"\nEpoch {epoch}, Step {step}:\n" \
                         + "".join(
                             f"[{('Value' if 'value' in name else 'Policy')}] {name}: {param.grad.norm().item():.6f}\n"
                             for name, param in self.model.named_parameters()
@@ -245,7 +230,7 @@ class AlphaZeroTrainer:
 
             if self.sampler is not None:
                 total_examples = self.batch_size * self.steps_per_epoch
-                target_mix = self.sampler.target_mix  # normalized {BucketKey: frac}
+                target_mix = self.sampler.target_mix
 
                 requested_counts = {
                     k: int(round(v * total_examples)) for k, v in target_mix.items()
@@ -279,6 +264,7 @@ class AlphaZeroTrainer:
                             )
                     print(f"[Sampler] L1 gap (fractions): {l1_gap:.3f}\n")
 
+            self.save_checkpoint(epoch=epoch, label="latest")
             if avg_v_loss < self.best_value_loss:
                 self.best_value_loss = avg_v_loss
                 self.best_epoch = epoch
@@ -322,26 +308,46 @@ class AlphaZeroTrainer:
         return self.best_epoch, self.best_value_loss
 
     def save_checkpoint(
-        self, epoch: int, label: str = "latest", best_value_loss: Optional[float] = None
+        self,
+        epoch: int,
+        label: str = "latest",
+        best_value_loss: Optional[float] = None,
     ):
-        checkpoint = {
+        ckpt = {
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "epoch": epoch,
         }
         if best_value_loss is not None:
-            checkpoint["best_value_loss"] = best_value_loss
+            ckpt["best_value_loss"] = best_value_loss
+        if self.config_hash:
+            ckpt["config_hash"] = self.config_hash # Add hash to checkpoint
 
-        torch.save(checkpoint, f"checkpoints/policy_value_net_{label}.pth")
+        if self.save_paths:
+            if label == "best":
+                torch.save(ckpt, str(self.save_paths["model_best"]))
+            else:
+                torch.save(ckpt, str(self.save_paths["model_last"]))
+        else:
+            torch.save(ckpt, f"checkpoints/policy_value_net_{label}.pth")
 
 
 def run_training(
-    model: PolicyValueNet, optimizer: optim.Optimizer, buffer: ReplayBuffer, config: Any
-) -> None:
-    """Utility to create a trainer and start training."""
+    model: PolicyValueNet,
+    optimizer: optim.Optimizer,
+    buffer: ReplayBuffer,
+    config: Any,
+    config_hash: Optional[str] = None, # Added config_hash
+    best_value_loss: float = float("inf"),
+    debug: bool = False,
+    save_paths: Optional[Dict[str, Path]] = None,
+) -> Tuple[Optional[int], float]:
+    """Utility to create a  and start training."""
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    trainer = AlphaZeroTrainer(model, optimizer, buffer, config, device)
-    trainer.train()
+    trainer = AlphaZeroTrainer(
+        model, optimizer, buffer, config, config_hash, device, best_value_loss, save_paths=save_paths
+    )
+    return trainer.train(debug=debug)

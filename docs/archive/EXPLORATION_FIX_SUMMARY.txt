@@ -1,0 +1,126 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    CYCLE 1 EXPLORATION ANALYSIS SUMMARY                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📊 PROBLEM IDENTIFIED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ply 0 (First Move) Entropy:
+  • Median:  0.78  (Target: >2.0) ❌
+  • Mean:    0.91  (Target: >2.2) ❌
+  • Q1:      0.37
+  • Q3:      1.43
+  
+Distribution:
+  • 32.7% samples have entropy < 0.5  (very low)    █████████████
+  • 28.7% samples have entropy 0.5-1.0 (low)        ███████████
+  • 61.3% samples have entropy < 1.0  (problematic) ████████████████████████
+
+Game-Level:
+  • 53.3% of games have early entropy < 1.5 ❌
+
+🔍 ROOT CAUSES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. BUG: tau_early_plies not applied
+   - Config had: {0: 0.55, 1: 0.35, 2: 0.25}
+   - Actually used: 0.25 (fallback)
+   - Reason: JSON serialization converts int keys to str keys
+   - Impact: 45% lower tau than intended at ply 0
+
+2. BUG: dirichlet_eps logging incorrect
+   - Config had: dirichlet_epsilon_root=0.40 at ply 0
+   - Logged value: 0.02 (wrong!)
+   - Reason: Logged dirichlet_epsilon instead of actual value used
+   - Impact: Misleading analysis (actual was likely correct)
+
+3. CONFIG: Parameters too conservative
+   - tau[0]=0.55 still too low for opening exploration
+   - dirichlet_epsilon_root=0.40 insufficient noise
+   - c_puct schedule too mild (c0=0.3)
+
+🔧 FIXES APPLIED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Fixed _tau_for_move() in train/self_play.py
+   ✓ Now handles both int and str keys
+   ✓ Works correctly after JSON serialization
+
+2. Fixed dirichlet_eps logging in train/self_play.py
+   ✓ Logs actual epsilon used (root vs non-root)
+   ✓ Correctly captures move_number==0 special case
+
+3. Created phaseC_c2.py with aggressive exploration parameters
+
+📈 CONFIGURATION CHANGES (Cycle 1 → Cycle 2)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Temperature (τ):
+  tau_early_plies[0]:  0.55 → 0.85  (+54%)  ⚡ High Priority
+  tau_early_plies[1]:  0.35 → 0.50  (+43%)
+  tau_early_plies[2]:  0.25 → 0.30  (+20%)
+
+Dirichlet Noise:
+  epsilon_root:        0.40 → 0.55  (+38%)  ⚡ High Priority
+  epsilon:             0.05 → 0.12  (+140%)
+  concentration:       6.0  → 8.0   (+33%)
+  alpha_max:           0.08 → 0.10  (+25%)
+
+C_PUCT Schedule:
+  c0 (boost):          0.3  → 0.8   (+167%) ⚡ High Priority
+  lambda (decay):      0.7  → 0.5   (-29%)
+
+Effective c_puct at root:  1.8 → 2.3  (+28%)
+
+🎯 EXPECTED IMPROVEMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ply 0 Entropy:
+  Current:  median=0.78, mean=0.91
+  Target:   median>2.0,  mean>2.2
+  Expected: 2.5x increase ⬆️
+
+Early Game Entropy:
+  Current:  median=1.47, 53% games < 1.5
+  Target:   median>2.0,  <20% games < 1.5
+  Expected: 1.4x increase, 2.7x fewer low-entropy games ⬆️
+
+Opening Diversity:
+  ✓ More varied first moves
+  ✓ Better coverage of opening space
+  ✓ Reduced pattern repetition
+
+📋 VALIDATION CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After Cycle 2:
+  [ ] Ply 0 entropy median > 2.0
+  [ ] Ply 0 entropy mean > 2.2
+  [ ] < 5% of ply 0 samples with entropy < 1.0
+  [ ] < 20% of games with early entropy < 1.5
+  [ ] Logged tau values: 0.85, 0.50, 0.30 (not 0.15 fallback)
+  [ ] Logged dirichlet_eps at ply 0: 0.55 (not 0.12)
+
+🚀 NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Run cycle 2 selfplay with phaseC_c2.py:
+   python cli/train/train_loop_main.py --config configs.phaseC_c2
+
+2. Analyze results using provided script in CYCLE2_CHANGES.md
+
+3. Compare metrics with cycle 1
+
+4. If still insufficient, try even more aggressive values
+
+📁 FILES CREATED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  • CYCLE1_EXPLORATION_ANALYSIS.md  - Detailed analysis of cycle 1
+  • CYCLE2_CHANGES.md                - Implementation details & validation
+  • configs/phaseC_c2.py             - New configuration for cycle 2
+  • train/self_play.py               - Bug fixes applied
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              END OF SUMMARY                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝

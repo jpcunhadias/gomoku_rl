@@ -1,5 +1,8 @@
 from collections import defaultdict
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mcts.mcts import MCTS
 
 import numpy as np
 
@@ -22,6 +25,7 @@ class TreeNode:
         self.P: float = prior
         self.action_taken: Any = action_taken
         self.use_rave: bool = use_rave
+        self.depth = parent.depth + 1 if parent else 0
 
         # RAVE statistics
         self.n_rave: Dict[Any, int] = defaultdict(int)
@@ -64,11 +68,16 @@ class TreeNode:
                 print(f"[DEBUG] Ignored invalid expansion action: {action}")
 
     def select_child(
-        self, c_puct: float, k_rave: float = 300.0
+        self, mcts: "MCTS" = None, c_puct: float = None, k_rave: float = 300.0
     ) -> Tuple[Any, "TreeNode"]:
         """Select child with highest (PUCT + RAVE) or standard PUCT score."""
         if self.is_leaf():
             raise ValueError("Cannot select child from a leaf node.")
+
+        if mcts is not None:
+            c_puct = mcts._effective_c_puct(self.depth)
+        elif c_puct is None:
+            c_puct = 1.5
 
         def puct_score(child: "TreeNode", move: Any) -> float:
             u = c_puct * child.P * np.sqrt(self.n_visits + 1e-8) / (1 + child.n_visits)

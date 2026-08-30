@@ -31,3 +31,8 @@ class SampleV2:
 
     # Indicates the version of the SampleV2 schema. Increment this value whenever the structure of the dataclass changes in a way that affects serialization, deserialization, or compatibility with stored data.
     schema_version: int = 2
+
+    # new fields for opening variety
+    uniform_root_applied: Optional[int] = None  # 0 or 1
+    open5_key: Optional[int] = None
+    opening_memory_hit: Optional[int] = None  # 0 or 1

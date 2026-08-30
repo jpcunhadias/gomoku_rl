@@ -1,5 +1,6 @@
+import math
 import random
-from typing import Any, Callable, Dict, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -15,6 +16,7 @@ class MCTS:
         c_puct: float = 1.0,
         n_simulations: int = 800,
         use_rave: bool = True,
+        c_puct_schedule: Optional[dict] = None,
     ) -> None:
         """
         Args:
@@ -30,6 +32,8 @@ class MCTS:
         self.root = TreeNode(use_rave=use_rave)
         self.last_root_visit_counts: Union[Dict[Any, int], None] = None
         self._root_noise_applied = False
+        self.c_puct_schedule = c_puct_schedule or {"enabled": False}
+        self.last_depth_cs = None
 
     def update_with_move(self, move: Any) -> None:
         """Reuse the subtree rooted at ``move`` if it exists."""
@@ -65,7 +69,7 @@ class MCTS:
                 break
 
             action, node = node.select_child(
-                c_puct=self.c_puct,
+                self,
                 k_rave=300.0,
             )
 
@@ -95,6 +99,7 @@ class MCTS:
             )
 
         node.backpropagate(value, visited_moves)
+        self.last_depth_cs = None
 
     def apply_root_dirichlet(self, epsilon: float, alpha: float) -> None:
         """Mix Dir(α) into current root's priors: P <- (1-ε)P + ε·Dir(α)."""
@@ -142,6 +147,7 @@ class MCTS:
         self.root = TreeNode(use_rave=self.use_rave)
         self.last_root_visit_counts = None
         self._root_noise_applied = False
+        self.last_depth_cs = []
 
     def _normalize_counts(
         self, counts: Dict[Any, int], temp: float
@@ -155,10 +161,21 @@ class MCTS:
             best_action = random.choice(best_actions)
             return {a: 1.0 if a == best_action else 0.0 for a in counts}
 
-        counts_arr = np.array(list(counts.values()), dtype=np.float32)
+        counts_arr = np.array(list(counts.values()), dtype=np.float64)
         actions = list(counts.keys())
-        counts_arr = np.power(counts_arr, 1.0 / temp)
-        probs = counts_arr / np.sum(counts_arr)
+        
+        # Use log-space to avoid overflow: log(count^(1/T)) = log(count)/T
+        exponent = 1.0 / temp
+        if exponent > 10:  # Would cause overflow with large counts
+            log_counts = np.log(np.maximum(counts_arr, 1e-10))
+            log_probs = log_counts / temp
+            log_probs -= np.max(log_probs)  # Numerical stability
+            probs = np.exp(log_probs)
+            probs = probs / np.sum(probs)
+        else:
+            counts_arr = np.power(counts_arr, exponent)
+            probs = counts_arr / np.sum(counts_arr)
+        
         return dict(zip(actions, probs))
 
     def root_visit_stats(self):
@@ -175,3 +192,24 @@ class MCTS:
             "max": int(max(vc)),
             "mean": float(sum(vc) / len(vc)),
         }
+
+
+
+    def _effective_c_puct(self, depth: int) -> float:
+        """
+        Additive c_puct schedule:
+        eff = base_c_puct + max(0, c0 * exp(-lambda * depth))
+        and finally floored by c_min
+        """
+        base = getattr(self, "c_puct", 1.5)
+        sched = getattr(self, "c_puct_schedule", {"enabled": False})
+        if not (isinstance(sched, dict) and sched.get("enabled", False)):
+            return base
+
+        c0 = float(sched.get("c0", 0.0))
+        lam = float(sched.get("lambda_", sched.get("lambda", 0.0)))
+        c_min = float(sched.get("c_min", 1.0))
+
+        bump = max(0.0, c0 * math.exp(-lam * max(0, depth)))
+        eff = base + bump
+        return max(eff, c_min)
