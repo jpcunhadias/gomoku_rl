@@ -151,17 +151,21 @@ Full writeup: `docs/archive/CYCLE2_V4_VALIDATION_AND_ARENA.md`.
    apply it to a from-scratch cycle's own cold-start self-play (see the Cycle 1 addendum)
 8. **Report win rates split by color, not just aggregate**, in any arena comparison — first-move
    advantage looks strong on this board (see Cycle 2 Phase 5)
+9. **Evaluate calibration on a held-out split, not the training buffer** — comparing two models'
+   calibration on *their own* training buffers isn't a controlled test; different buffers have
+   different difficulty. Use `scripts/diagnose_value_head_holdout.py`. See
+   `docs/archive/VALUE_HEAD_CALIBRATION_INVESTIGATION.md`.
 
 ---
 
 ## Next Steps
 
-1. **Value-head overconfidence** (Cycle 2: pre-tanh saturation 43.8%, degraded Brier/ECE) —
-   investigate before trusting Cycle 3+ value predictions or using this model as a sweep
-   evaluator. Candidate fix: revisit the value-head weight-decay/LR split in
-   `cli/train/train_loop_main.py`.
+1. ~~Value-head overconfidence~~ **Investigated and closed** — didn't survive a controlled
+   held-out test (training on Cycle 2 improved Brier 0.816→0.548 and ECE 0.178→0.138 on genuinely
+   unseen positions; the original cross-buffer comparison that flagged this was methodologically
+   flawed). See `docs/archive/VALUE_HEAD_CALIBRATION_INVESTIGATION.md`.
 2. **The small parameter sweep** (tau, dirichlet_epsilon; 3-4 settings each, c_puct fixed) —
-   now unblocked, with a validated Cycle 1→2 baseline pair to compare against.
+   unblocked, with a validated Cycle 1→2 baseline pair to compare against.
 3. **DVC/MLflow backup wiring** — still parked; revisit once the sweep starts producing multiple
    comparable runs worth not losing.
 
