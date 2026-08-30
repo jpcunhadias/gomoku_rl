@@ -70,7 +70,11 @@ print(f'Buffer size: {len(buffer)} samples')
 print()
 
 # Sample a large batch to get good statistics
-batch_size = min(2048, len(buffer))
+# Early-ply (0/1/2) samples are inherently rare -- roughly one per game, so capping at
+# 2048 out of a much larger buffer was throwing away most of the already-small pool of
+# ply-eligible samples for no benefit (this is pure CPU/numpy work, not model inference,
+# so there's no cost to using the whole buffer).
+batch_size = len(buffer)
 states, target_pi, values = buffer.sample(batch_size)
 target_pi_np = target_pi.cpu().numpy()
 states_np = states.cpu().numpy()
