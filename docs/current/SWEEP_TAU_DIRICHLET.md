@@ -123,7 +123,8 @@ Fill in / correct as each point (re)completes with the fixed methodology.
 | 2 (production, contaminated buffer) | 1.0x both | 0.508 | 0.979 | 0.956 | 0.548 | 0.138 | — (is the baseline) |
 | 50 (clean 1.0x re-measure) | 1.0x both | 0.471 | 0.061 | 0.003 | 0.113 | 0.049 | **50-15-35, decisive winrate 77%** vs Cycle 2 — beats it despite ~half the training data (100 vs 200 games), see below |
 | 31 | tau 0.75x | 0.381 | 0.008 | 0.000 | 0.124 | 0.046 | **0-49-51, decisive winrate 0.0%** (confirmed under real independent trials; predecessor deterministic run was 0-50-50) |
-| 42 | tau 1.25x | 0.570 | 0.096 | 0.008 | 0.144 | 0.036 | **43-0-57, decisive winrate 100%** (confirmed; predecessor deterministic run was 50-0-50, same mirrored color pattern — candidate wins only as White, never loses as Black — persists under real trials, so it's real, not a determinism artifact) |
+| 42 | tau 1.25x | 0.570 | 0.096 | 0.008 | 0.144 | 0.036 | **43-0-57, decisive winrate 100%** vs Cycle 2 (confirmed; predecessor deterministic run was 50-0-50, same mirrored color pattern — candidate wins only as White, never loses as Black — persists under real trials, so it's real, not a determinism artifact). **Direct test: beat 50 (clean baseline) 100-0-0, every game.** |
+| 61 | tau 1.5x | 0.664 | 0.201 | 0.021 | 0.182 | 0.072 | Not run vs Cycle 2. **Direct test: beat 42 100-0-0, every game.** Trend has not plateaued — 4/4 points so far, each stronger point beats the previous decisively. |
 | 44 | dirichlet 0.75x | | | | | | |
 | 46 | dirichlet 1.25x | | | | | | |
 
@@ -201,3 +202,20 @@ Scoped to one arena comparison for this point: **61 vs. 42** (the current streng
 clean buffers) — directly tests whether pushing tau further keeps helping or whether 1.25x is
 near a ceiling. Not also run against Cycle 2, to keep compute reasonable; can be added later if
 wanted for the results table.
+
+**Result: 100-0-0 for Cycle 61 over Cycle 42 — every game, both colors, no draws.** Same
+perfectly one-sided pattern as 42 vs. 50. The trend has not plateaued; if anything it's still
+accelerating (Cycle 61's win over 42 is just as total as 42's win over 50).
+
+Ply 0 entropy continues climbing monotonically: 31=0.381, 50=0.471, 42=0.570, **61=0.664**. Ply
+1/2 (0.201, 0.021) are higher than 42's but still well below the uniform ceiling — the "always
+collapses regardless of tau" read from earlier plies needs an asterisk at this scale; ply 1 in
+particular is now clearly responding to tau, not just ply 0.
+
+Held-out calibration: Brier 0.182, ECE 0.072 — **worse than 42's (0.144, 0.036), continuing a
+monotonic trend** (50: 0.113 -> 42: 0.144 -> 61: 0.182) in the *opposite* direction from arena
+strength, which keeps improving at every step. This mirrors the value-head investigation's
+lesson exactly, now showing up cleanly across a whole sweep axis: calibration quality and
+playing strength are not the same thing, and here they move in opposite directions as tau
+increases. **Open question, not yet answered**: does strength keep climbing past 1.5x, or is a
+ceiling close? No sign of one yet in 4 points.
