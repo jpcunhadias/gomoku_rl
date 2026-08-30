@@ -14,10 +14,8 @@ Channels:
 """
 
 import random
-from typing import List, Tuple
 
 import torch
-
 
 # ---------------------------------------------------------------------------
 # Transformation definitions
@@ -25,7 +23,7 @@ import torch
 # respectively.  The same operation is used for both tensors to preserve the
 # relationship between board state and policy targets.
 # ---------------------------------------------------------------------------
-TRANSFORMS: List[Tuple] = [
+TRANSFORMS: list[tuple] = [
     (
         lambda s: torch.flip(s, dims=[2]),  # Horizontal flip
         lambda p: torch.flip(p, dims=[1]),
@@ -55,7 +53,7 @@ TRANSFORMS: List[Tuple] = [
 
 def apply_random_transform(
     state: torch.Tensor, policy: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Randomly apply a single transform to both ``state`` and ``policy``.
 
     With 50% probability no transformation is applied.
@@ -87,8 +85,8 @@ def augment_board_state(board_tensor: torch.Tensor) -> torch.Tensor:
 
 
 def augment_data(
-    data: List[Tuple[torch.Tensor, torch.Tensor, float]],
-) -> List[Tuple[torch.Tensor, torch.Tensor, float]]:
+    data: list[tuple[torch.Tensor, torch.Tensor, float]],
+) -> list[tuple[torch.Tensor, torch.Tensor, float]]:
     """Apply a random transform to both state and policy for each sample."""
 
     augmented = []

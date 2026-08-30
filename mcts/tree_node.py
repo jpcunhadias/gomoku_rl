@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Dict, Optional, Set, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from mcts.mcts import MCTS
@@ -17,8 +17,8 @@ class TreeNode:
         action_taken: Any = None,
         use_rave: bool = True,
     ) -> None:
-        self.parent: Optional["TreeNode"] = parent
-        self.children: Dict[Any, "TreeNode"] = {}
+        self.parent: TreeNode | None = parent
+        self.children: dict[Any, TreeNode] = {}
         self.n_visits: int = 0
         self.W: float = 0.0
         self.Q: float = 0.0
@@ -28,8 +28,8 @@ class TreeNode:
         self.depth = parent.depth + 1 if parent else 0
 
         # RAVE statistics
-        self.n_rave: Dict[Any, int] = defaultdict(int)
-        self.w_rave: Dict[Any, float] = defaultdict(float)
+        self.n_rave: dict[Any, int] = defaultdict(int)
+        self.w_rave: dict[Any, float] = defaultdict(float)
 
     def is_leaf(self) -> bool:
         return len(self.children) == 0
@@ -37,9 +37,7 @@ class TreeNode:
     def is_root(self) -> bool:
         return self.parent is None
 
-    def expand(
-        self, action_priors, legal_moves, debug=False, prior_exponent_beta: float = 1.0
-    ):
+    def expand(self, action_priors, legal_moves, debug=False, prior_exponent_beta: float = 1.0):
         legal_moves_set = set(legal_moves)
 
         # Build a dict of priors for legal moves only
@@ -55,7 +53,7 @@ class TreeNode:
             s = float(arr.sum())
             if s > 0:
                 arr /= s
-            for (k, _), v in zip(p.items(), arr):
+            for (k, _), v in zip(p.items(), arr, strict=True):
                 p[k] = float(v)
 
         # create children with (possibly) sharpened P
@@ -69,7 +67,7 @@ class TreeNode:
 
     def select_child(
         self, mcts: "MCTS" = None, c_puct: float = None, k_rave: float = 300.0
-    ) -> Tuple[Any, "TreeNode"]:
+    ) -> tuple[Any, "TreeNode"]:
         """Select child with highest (PUCT + RAVE) or standard PUCT score."""
         if self.is_leaf():
             raise ValueError("Cannot select child from a leaf node.")
@@ -104,9 +102,7 @@ class TreeNode:
         self.n_rave[move] += 1
         self.w_rave[move] += value
 
-    def backpropagate(
-        self, value: float, visited_moves: Optional[Set[Any]] = None
-    ) -> None:
+    def backpropagate(self, value: float, visited_moves: set[Any] | None = None) -> None:
         """
         Backpropagate value up the tree, updating parent nodes and RAVE statistics.
         """

@@ -1,14 +1,15 @@
+import argparse
 import json
 import os
 from collections import defaultdict
-import argparse
+
 import numpy as np
 
 from utils.paths import cycle_paths
 
 
 def load_jsonl(path):
-    with open(path, "r") as f:
+    with open(path) as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -23,7 +24,12 @@ def load_jsonl(path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cycle", type=int, required=True, help="Cycle number to analyze")
-    parser.add_argument("--tau_cutoff_plies", type=int, default=3, help="Number of plies to consider for early game entropy")
+    parser.add_argument(
+        "--tau_cutoff_plies",
+        type=int,
+        default=3,
+        help="Number of plies to consider for early game entropy",
+    )
     args = parser.parse_args()
 
     paths = cycle_paths(args.cycle)
@@ -70,7 +76,7 @@ def main():
             # Skip if entropy is null (can happen due to numerical issues)
             if rec["entropy_pi_mcts"] is None:
                 continue
-            
+
             H_raw = float(rec["entropy_pi_mcts"])
             if mv < args.tau_cutoff_plies:
                 cur_game_early_raw.append(H_raw)
@@ -120,9 +126,7 @@ def main():
 
     print(f"\n=== Phase B summary for Cycle {args.cycle} ===")
     print(f"Games analyzed: {total_games or total}")
-    print(
-        f"Early-entropy (RAW) median-of-medians: {med_raw:.3f} (IQR {q1_raw:.3f}–{q3_raw:.3f})"
-    )
+    print(f"Early-entropy (RAW) median-of-medians: {med_raw:.3f} (IQR {q1_raw:.3f}–{q3_raw:.3f})")
     print(
         f"Early-entropy (NORMALIZED) median-of-medians: {med_norm:.3f} (IQR {q1_norm:.3f}–{q3_norm:.3f})"
     )
@@ -161,9 +165,7 @@ def main():
         print("Normalized entropy in target band [0.45, 0.65]. ✅")
 
     print("\nNext: rerun policy_head_check.py to ensure Top-3 vs MCTS didn’t regress.")
-    print(
-        "      If unique openings < +25% vs baseline, nudge exploration up.", flush=True
-    )
+    print("      If unique openings < +25% vs baseline, nudge exploration up.", flush=True)
 
 
 if __name__ == "__main__":

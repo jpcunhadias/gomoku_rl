@@ -1,4 +1,5 @@
 import pytest
+
 from game.gomoku import GomokuGameManager
 
 
@@ -16,9 +17,7 @@ def test_draw_game():
             player = 1 if (row + col) % 2 == 0 else 2
             game.board.board[row, col] = player
             game.board.last_move = (row, col)
-            game.board.current_player = (
-                3 - player
-            )  # Just to allow check_win to work correctly
+            game.board.current_player = 3 - player  # Just to allow check_win to work correctly
             if game.board.check_win()[0]:
                 pytest.skip("Pattern accidentally formed a win")
 

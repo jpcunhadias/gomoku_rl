@@ -63,8 +63,16 @@ def make_optimizer(model: PolicyValueNet, lr: float, value_weight_decay: float, 
 
 
 def train_one_config(
-    init_state_dict, device, train_buffer, epochs, steps_per_epoch, batch_size,
-    lr, value_weight_decay, use_adamw, seed,
+    init_state_dict,
+    device,
+    train_buffer,
+    epochs,
+    steps_per_epoch,
+    batch_size,
+    lr,
+    value_weight_decay,
+    use_adamw,
+    seed,
 ):
     set_seeds(seed)
     model = PolicyValueNet(board_size=8).to(device)
@@ -122,7 +130,7 @@ def scalar_ece(v_hat: np.ndarray, z: np.ndarray, num_bins: int = 10) -> float:
 
 def evaluate_on_holdout(model, device, holdout):
     model.eval()
-    states, _, values = zip(*holdout)
+    states, _, values = zip(*holdout, strict=True)
     states = torch.stack(states).to(device)
     z = np.array(values, dtype=np.float32)
 
@@ -194,23 +202,34 @@ def main():
     for name, use_adamw in configs:
         print(f"\n=== {name} ===")
         model = train_one_config(
-            init_state_dict, device, train_buffer,
-            args.epochs, args.steps_per_epoch, args.batch_size,
-            args.lr, args.value_weight_decay, use_adamw, args.seed,
+            init_state_dict,
+            device,
+            train_buffer,
+            args.epochs,
+            args.steps_per_epoch,
+            args.batch_size,
+            args.lr,
+            args.value_weight_decay,
+            use_adamw,
+            args.seed,
         )
         stats = evaluate_on_holdout(model, device, holdout)
         print(f"  held-out: {stats}")
         results.append((name, stats))
 
-    print("\n=== SUMMARY (held-out set, n={}) ===".format(len(holdout)))
+    print(f"\n=== SUMMARY (held-out set, n={len(holdout)}) ===")
     print(f"{'config':45s}  {'brier':>8s}  {'ece':>8s}  {'sat%':>6s}")
     if base_stats is not None:
-        print(f"{'Starting checkpoint (no training)':45s}  "
-              f"{base_stats['brier']:8.4f}  {base_stats['ece']:8.4f}  "
-              f"{base_stats['saturation']*100:5.1f}%")
+        print(
+            f"{'Starting checkpoint (no training)':45s}  "
+            f"{base_stats['brier']:8.4f}  {base_stats['ece']:8.4f}  "
+            f"{base_stats['saturation'] * 100:5.1f}%"
+        )
     for name, stats in results:
-        print(f"{name:45s}  {stats['brier']:8.4f}  {stats['ece']:8.4f}  "
-              f"{stats['saturation']*100:5.1f}%")
+        print(
+            f"{name:45s}  {stats['brier']:8.4f}  {stats['ece']:8.4f}  "
+            f"{stats['saturation'] * 100:5.1f}%"
+        )
 
 
 if __name__ == "__main__":

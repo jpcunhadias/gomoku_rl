@@ -1,5 +1,6 @@
-import pytest
 import numpy as np
+import pytest
+
 from game.gomoku import GomokuBoard
 
 
@@ -45,6 +46,7 @@ def test_win_horizontal():
     assert win is True
     assert winner == 1
 
+
 def test_win_vertical():
     board = GomokuBoard()
     for r in range(5):
@@ -56,6 +58,7 @@ def test_win_vertical():
     assert win is True
     assert winner == 1
 
+
 def test_win_diag1():
     board = GomokuBoard()
     for i in range(5):
@@ -66,6 +69,7 @@ def test_win_diag1():
     win, winner = board.check_win()
     assert win is True
     assert winner == 1
+
 
 def test_win_diag2():
     board = GomokuBoard()
@@ -88,6 +92,7 @@ def test_current_state_shape():
     assert state[1][7][7] == 1.0  # opponent
     assert state[2][7][7] == 1.0  # last move marker
 
+
 def test_win_player2():
     board = GomokuBoard()
     for c in range(5):
@@ -99,11 +104,10 @@ def test_win_player2():
     assert win is True
     assert winner == 2
 
+
 def test_draw():
     board = GomokuBoard(board_size=3)
-    board.board = np.array([[1, 2, 1],
-                              [1, 2, 2],
-                              [2, 1, 1]])
+    board.board = np.array([[1, 2, 1], [1, 2, 2], [2, 1, 1]])
     board.last_move = (0, 2)
     board.current_player = 2
 
@@ -116,6 +120,7 @@ def test_draw():
     # In a draw situation, is_terminal() should be true, and get_winner() should be None
     assert board.is_terminal() is True
     assert board.get_winner() is None
+
 
 def test_get_legal_moves():
     board = GomokuBoard(board_size=3)

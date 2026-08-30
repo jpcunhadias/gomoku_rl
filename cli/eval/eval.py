@@ -1,7 +1,6 @@
 import argparse
 import os
 from types import SimpleNamespace
-from typing import Optional
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -20,8 +19,8 @@ def evaluate_model_vs_pure_mcts(
     config: SimpleNamespace,
     num_games: int = 20,
     board_size: int = 8,
-    writer: Optional[SummaryWriter] = None,
-    global_step: Optional[int] = None,
+    writer: SummaryWriter | None = None,
+    global_step: int | None = None,
 ) -> float:
     print("[Eval] Starting evaluation against Pure MCTS...")
     model.eval()
@@ -83,9 +82,7 @@ def evaluate_model_vs_pure_mcts(
 
         if winner == 0:
             draws += 1
-        elif (winner == 1 and first_player_is_model) or (
-            winner == 2 and not first_player_is_model
-        ):
+        elif (winner == 1 and first_player_is_model) or (winner == 2 and not first_player_is_model):
             model_wins += 1
         else:
             pure_mcts_wins += 1
@@ -118,12 +115,8 @@ def main():
         default="checkpoints/policy_value_net_best.pth",
         help="Path to model checkpoint",
     )
-    parser.add_argument(
-        "--num_games", type=int, default=20, help="Number of games to play"
-    )
-    parser.add_argument(
-        "--board_size", type=int, default=8, help="Board size (e.g., 8 or 15)"
-    )
+    parser.add_argument("--num_games", type=int, default=20, help="Number of games to play")
+    parser.add_argument("--board_size", type=int, default=8, help="Board size (e.g., 8 or 15)")
     parser.add_argument(
         "--eval_sim", type=int, default=400, help="Number of MCTS simulations for eval"
     )

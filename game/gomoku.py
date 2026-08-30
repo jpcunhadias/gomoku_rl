@@ -1,5 +1,4 @@
 import numpy as np
-from typing import List, Tuple, Optional
 
 
 class GomokuBoard:
@@ -24,7 +23,7 @@ class GomokuBoard:
         """Return the total number of moves played on the board."""
         return np.count_nonzero(self.board)
 
-    def get_legal_moves(self) -> List[Tuple[int, int]]:
+    def get_legal_moves(self) -> list[tuple[int, int]]:
         """Return coordinates of all empty positions."""
         legal_moves = [
             (r, c)
@@ -49,7 +48,7 @@ class GomokuBoard:
         self.last_move = (row, col)
         self.current_player = 2 if self.current_player == 1 else 1
 
-    def check_win(self) -> Tuple[bool, int]:
+    def check_win(self) -> tuple[bool, int]:
         """Return whether the last move ended the game and the winning player."""
 
         if self.last_move is None:
@@ -71,9 +70,7 @@ class GomokuBoard:
             # Check in the positive direction
             r, c = last_row + dr, last_col + dc
             while (
-                0 <= r < self.board_size
-                and 0 <= c < self.board_size
-                and self.board[r, c] == player
+                0 <= r < self.board_size and 0 <= c < self.board_size and self.board[r, c] == player
             ):
                 count += 1
                 r += dr
@@ -82,9 +79,7 @@ class GomokuBoard:
             # Check in the negative direction
             r, c = last_row - dr, last_col - dc
             while (
-                0 <= r < self.board_size
-                and 0 <= c < self.board_size
-                and self.board[r, c] == player
+                0 <= r < self.board_size and 0 <= c < self.board_size and self.board[r, c] == player
             ):
                 count += 1
                 r -= dr
@@ -102,11 +97,11 @@ class GomokuBoard:
             return not win  # it's a draw if nobody won
         return False
 
-    def get_legal_move_indices(self) -> List[int]:
+    def get_legal_move_indices(self) -> list[int]:
         """Return legal moves encoded as single indices."""
         return [self.move_to_index(r, c) for (r, c) in self.get_legal_moves()]
 
-    def get_winner(self) -> Optional[int]:
+    def get_winner(self) -> int | None:
         """Return the winning player or ``None`` if there is no winner."""
         win, winner = self.check_win()
         return winner if win else None
@@ -117,9 +112,7 @@ class GomokuBoard:
 
         # Player channels
         state[0] = (self.board == self.current_player).astype(np.float32)
-        state[1] = (self.board == (2 if self.current_player == 1 else 1)).astype(
-            np.float32
-        )
+        state[1] = (self.board == (2 if self.current_player == 1 else 1)).astype(np.float32)
 
         # Last move channel
         if self.last_move:
@@ -153,7 +146,7 @@ class GomokuBoard:
         """Convert ``(row, col)`` into a flat index."""
         return row * self.board_size + col
 
-    def index_to_move(self, index: int) -> Tuple[int, int]:
+    def index_to_move(self, index: int) -> tuple[int, int]:
         """Inverse of :meth:`move_to_index`.``"""
         return divmod(index, self.board_size)
 
@@ -206,9 +199,9 @@ class GomokuBoard:
 class GomokuGameManager:
     """Convenience wrapper that manages a game between two players."""
 
-    def __init__(self, board: Optional[GomokuBoard] = None) -> None:
+    def __init__(self, board: GomokuBoard | None = None) -> None:
         self.board = board if board else GomokuBoard()
-        self.winner: Optional[int] = None
+        self.winner: int | None = None
         self.finished = False
 
     def reset(self, start_player: int = 1) -> None:
@@ -245,7 +238,7 @@ class GomokuGameManager:
         """Return ``True`` if the game has finished."""
         return self.finished
 
-    def get_winner(self) -> Optional[int]:
+    def get_winner(self) -> int | None:
         """Return the winner, or ``None`` for a draw or unfinished game."""
         return self.winner
 
@@ -253,11 +246,11 @@ class GomokuGameManager:
         """Return the player ID whose turn it is."""
         return self.board.current_player
 
-    def get_legal_moves(self) -> List[Tuple[int, int]]:
+    def get_legal_moves(self) -> list[tuple[int, int]]:
         """Return legal moves for the current board."""
         return self.board.get_legal_moves()
 
-    def get_legal_move_indices(self) -> List[int]:
+    def get_legal_move_indices(self) -> list[int]:
         """Return legal moves encoded as indices."""
         return [self.board.move_to_index(r, c) for (r, c) in self.get_legal_moves()]
 

@@ -52,7 +52,7 @@ def load_player(
     try:
         sd = torch.load(ckpt, map_location=device)["model_state_dict"]
     except Exception as e:
-        raise RuntimeError(f"Failed to load checkpoint {ckpt}: {e}")
+        raise RuntimeError(f"Failed to load checkpoint {ckpt}: {e}") from e
 
     model.load_state_dict(sd)
     model.eval()
@@ -209,9 +209,7 @@ def play_one(p_black, p_white, opening=None, stochastic=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--cycle", type=int, default=-1, help="Experiment cycle id for logging"
-    )
+    ap.add_argument("--cycle", type=int, default=-1, help="Experiment cycle id for logging")
     ap.add_argument("--baseline", required=True)
     ap.add_argument("--candidate", required=True)
     ap.add_argument(
@@ -244,12 +242,8 @@ def main():
         default=0.12,
         help="Dirichlet epsilon at root (ply 0)",
     )
-    ap.add_argument(
-        "--eval_tau0", type=float, default=0.08, help="Temperature at ply 0"
-    )
-    ap.add_argument(
-        "--eval_tau1", type=float, default=0.05, help="Temperature at ply 1"
-    )
+    ap.add_argument("--eval_tau0", type=float, default=0.08, help="Temperature at ply 0")
+    ap.add_argument("--eval_tau1", type=float, default=0.05, help="Temperature at ply 1")
     ap.add_argument(
         "--opening_set",
         type=str,
@@ -276,16 +270,14 @@ def main():
     # Load opening set if provided
     openings = None
     if args.opening_set:
-        with open(args.opening_set, "r") as f:
+        with open(args.opening_set) as f:
             content = f.read()
             # Try JSON first, then JSONL
             try:
                 openings = json.loads(content)
             except json.JSONDecodeError:
                 openings = [
-                    json.loads(line)
-                    for line in content.strip().split("\n")
-                    if line.strip()
+                    json.loads(line) for line in content.strip().split("\n") if line.strip()
                 ]
         print(f"Loaded {len(openings)} openings from {args.opening_set}")
 
@@ -363,13 +355,9 @@ def main():
         desc_prefix = "Pair"
 
     # Play paired games
-    for opening in tqdm(
-        pairs, desc=f"Playing {len(pairs)} {desc_prefix.lower()} pairs"
-    ):
+    for opening in tqdm(pairs, desc=f"Playing {len(pairs)} {desc_prefix.lower()} pairs"):
         # Game A: Candidate as black vs Baseline as white
-        w_a = play_one(
-            cand_black, base_white, opening=opening, stochastic=args.stochastic_eval
-        )
+        w_a = play_one(cand_black, base_white, opening=opening, stochastic=args.stochastic_eval)
         if w_a == 1:
             cand_black_wins += 1
         elif w_a == 2:
@@ -378,9 +366,7 @@ def main():
             draws += 1
 
         # Game B: Baseline as black vs Candidate as white (same opening, color-swapped)
-        w_b = play_one(
-            base_black, cand_white, opening=opening, stochastic=args.stochastic_eval
-        )
+        w_b = play_one(base_black, cand_white, opening=opening, stochastic=args.stochastic_eval)
         if w_b == 1:
             base_black_wins += 1
         elif w_b == 2:
@@ -494,12 +480,8 @@ def main():
     print("=" * 80)
 
     # Assertion: games must be even (paired requirement)
-    assert total_games % 2 == 0, (
-        f"Games must be even for paired evaluation (got {total_games})"
-    )
-    print(
-        f"✓ Paired games requirement satisfied: {total_games} total games ({len(pairs)} pairs)"
-    )
+    assert total_games % 2 == 0, f"Games must be even for paired evaluation (got {total_games})"
+    print(f"✓ Paired games requirement satisfied: {total_games} total games ({len(pairs)} pairs)")
 
     print("\n" + "-" * 80)
     print("GAME RESULTS")

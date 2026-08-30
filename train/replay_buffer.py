@@ -1,5 +1,4 @@
 import random
-from typing import List, Tuple
 
 import torch
 
@@ -9,9 +8,9 @@ class ReplayBuffer:
 
     def __init__(self, max_size: int) -> None:
         self.max_size = max_size
-        self.buffer: List[Tuple[torch.Tensor, torch.Tensor, float]] = []
+        self.buffer: list[tuple[torch.Tensor, torch.Tensor, float]] = []
 
-    def add(self, game_data: List[Tuple[torch.Tensor, torch.Tensor, float]]) -> None:
+    def add(self, game_data: list[tuple[torch.Tensor, torch.Tensor, float]]) -> None:
         """
         Accepts a list of (state_tensor, pi_tensor, z_value) tuples from one self-play game.
         """
@@ -22,14 +21,12 @@ class ReplayBuffer:
         if overflow > 0:
             self.buffer = self.buffer[overflow:]
 
-    def sample(
-        self, batch_size: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def sample(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Returns a batch of (state, policy, value) as PyTorch tensors.
         """
         batch = random.sample(self.buffer, batch_size)
-        states, policies, values = zip(*batch)
+        states, policies, values = zip(*batch, strict=True)
 
         return (
             torch.stack(states),  # Shape: [B, 3, 8, 8]
@@ -37,7 +34,7 @@ class ReplayBuffer:
             torch.tensor(values, dtype=torch.float32),  # Shape: [B]
         )
 
-    def get_all_targets(self) -> List[float]:
+    def get_all_targets(self) -> list[float]:
         return [sample[2] for sample in self.buffer]
 
     @classmethod

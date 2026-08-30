@@ -1,5 +1,3 @@
-import argparse
-
 from cli.utils import get_config_and_override
 from train.self_play import run_selfplay_pipeline
 from utils.paths import cycle_paths, save_config

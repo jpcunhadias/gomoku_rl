@@ -101,9 +101,7 @@ def linear_scale(step, steps, start, end):
 
 
 def main():
-    model = PolicyValueNet.load_from_checkpoint(
-        CKPT_IN, board_size=8, device=DEVICE
-    ).train()
+    model = PolicyValueNet.load_from_checkpoint(CKPT_IN, board_size=8, device=DEVICE).train()
     buffer = ReplayBuffer.load(BUFFER_P)
     opt = make_optimizer(model)
 

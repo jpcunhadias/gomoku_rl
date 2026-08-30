@@ -1,4 +1,5 @@
 import pytest
+
 from mcts.tree_node import TreeNode
 
 

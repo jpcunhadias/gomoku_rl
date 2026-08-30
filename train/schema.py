@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 import torch
 
@@ -27,12 +26,12 @@ class SampleV2:
 
     # symmetry & canonicalization (filled later)
     symmetry_id: int  # 0..7 (as recorded)
-    canon_hash: Optional[int]  # None for now
+    canon_hash: int | None  # None for now
 
     # Indicates the version of the SampleV2 schema. Increment this value whenever the structure of the dataclass changes in a way that affects serialization, deserialization, or compatibility with stored data.
     schema_version: int = 2
 
     # new fields for opening variety
-    uniform_root_applied: Optional[int] = None  # 0 or 1
-    open5_key: Optional[int] = None
-    opening_memory_hit: Optional[int] = None  # 0 or 1
+    uniform_root_applied: int | None = None  # 0 or 1
+    open5_key: int | None = None
+    opening_memory_hit: int | None = None  # 0 or 1

@@ -156,15 +156,9 @@ def main():
     print(f"Turn-indicator plane non-constant: {turn_plane_fail}")
 
     print("\n=== CHECKBOX SUMMARY ===")
-    print(
-        f"[{'x' if inv_fail == 0 else ' '}] Invertibility (state & π) holds for all 8 symmetries"
-    )
-    print(
-        f"[{'x' if argmax_fail == 0 else ' '}] Argmax alignment holds across symmetries"
-    )
-    print(
-        f"[{'x' if turn_plane_fail == 0 else ' '}] Turn-indicator plane spatially constant"
-    )
+    print(f"[{'x' if inv_fail == 0 else ' '}] Invertibility (state & π) holds for all 8 symmetries")
+    print(f"[{'x' if argmax_fail == 0 else ' '}] Argmax alignment holds across symmetries")
+    print(f"[{'x' if turn_plane_fail == 0 else ' '}] Turn-indicator plane spatially constant")
 
 
 if __name__ == "__main__":

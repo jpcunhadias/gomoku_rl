@@ -18,15 +18,11 @@ def test_c_puct_schedule():
 
     # At great depth, it should approach c_min
     assert mcts._effective_c_puct(100) > 0.5
-    assert (
-        abs(mcts._effective_c_puct(100) - 1.0) < 1e-5
-    )  # approaches base c_puct, not c_min
+    assert abs(mcts._effective_c_puct(100) - 1.0) < 1e-5  # approaches base c_puct, not c_min
 
     # Test c_min flooring
     schedule_with_c_min = {"enabled": True, "c0": -1.0, "lambda_": 0.5, "c_min": 0.8}
-    mcts_with_c_min = MCTS(
-        evaluator_fn=None, c_puct=0.1, c_puct_schedule=schedule_with_c_min
-    )
+    mcts_with_c_min = MCTS(evaluator_fn=None, c_puct=0.1, c_puct_schedule=schedule_with_c_min)
     assert mcts_with_c_min._effective_c_puct(0) == 0.8
 
 

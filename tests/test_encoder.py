@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 
 from game.encoder import board_to_tensor
 from game.gomoku import GomokuBoard
@@ -31,6 +31,7 @@ def test_board_to_tensor_player2_view():
     assert tensor[1, 0, 0] == 1.0  # opponent plane
     assert torch.all(tensor[2] == 1.0)
 
+
 def test_board_to_tensor_different_board_size():
     board = GomokuBoard(board_size=15)
     board.apply_move(0, 0)  # Player 1
@@ -43,6 +44,7 @@ def test_board_to_tensor_different_board_size():
     assert tensor[1, 14, 14] == 1.0  # player 2
     assert torch.all(tensor[2] == 1.0)
 
+
 def test_board_to_tensor_empty_board():
     board = GomokuBoard(board_size=5)
     tensor = board_to_tensor(board, current_player=1)
@@ -52,22 +54,17 @@ def test_board_to_tensor_empty_board():
     assert torch.all(tensor[1] == 0.0)
     assert torch.all(tensor[2] == 1.0)
 
+
 def test_board_to_tensor_full_board():
     board = GomokuBoard(board_size=3)
-    board.board = np.array([[1, 2, 1],
-                            [2, 1, 2],
-                            [1, 2, 1]])
+    board.board = np.array([[1, 2, 1], [2, 1, 2], [1, 2, 1]])
 
     tensor = board_to_tensor(board, current_player=1)
 
     assert tensor.shape == (3, 3, 3)
 
-    expected_player1_plane = [[1, 0, 1],
-                              [0, 1, 0],
-                              [1, 0, 1]]
-    expected_player2_plane = [[0, 1, 0],
-                              [1, 0, 1],
-                              [0, 1, 0]]
+    expected_player1_plane = [[1, 0, 1], [0, 1, 0], [1, 0, 1]]
+    expected_player2_plane = [[0, 1, 0], [1, 0, 1], [0, 1, 0]]
 
     assert torch.all(tensor[0] == torch.tensor(expected_player1_plane, dtype=torch.float32))
     assert torch.all(tensor[1] == torch.tensor(expected_player2_plane, dtype=torch.float32))

@@ -22,9 +22,7 @@ def test_self_play_game_populates_buffer(tmp_path):
         MCTS(evaluator_fn=evaluator, n_simulations=50),
         temperature=1.0,
     )
-    mcts_player2 = MCTSPlayer(
-        MCTS(evaluator_fn=evaluator, n_simulations=50), temperature=1.0
-    )
+    mcts_player2 = MCTSPlayer(MCTS(evaluator_fn=evaluator, n_simulations=50), temperature=1.0)
 
     runner = SelfPlayRunner(
         player1=mcts_player1,
@@ -206,4 +204,3 @@ def test_self_play_game_terminates(tmp_path):
 
 if __name__ == "__main__":
     pytest.main()
-

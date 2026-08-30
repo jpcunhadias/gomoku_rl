@@ -4,8 +4,9 @@ import os
 import random
 import time
 from collections import deque
+from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -27,9 +28,7 @@ from train.schema import SampleV2
 from utils.paths import cycle_paths, save_config, save_json, save_meta
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class SelfPlayRunner:
@@ -40,25 +39,22 @@ class SelfPlayRunner:
         player1,
         player2,
         buffer: ReplayBuffer,
-        augment_fn: Optional[
-            Callable[
-                [List[Tuple[torch.Tensor, torch.Tensor, float]]],
-                List[Tuple[torch.Tensor, torch.Tensor, float]],
-            ]
-        ] = None,
+        augment_fn: Callable[
+            [list[tuple[torch.Tensor, torch.Tensor, float]]],
+            list[tuple[torch.Tensor, torch.Tensor, float]],
+        ]
+        | None = None,
         verbose: bool = False,
-        diversity_manager: Optional[DiversityManager] = None,
-        config: Optional[SimpleNamespace] = None,
-        logger_path: Optional[str] = None,
+        diversity_manager: DiversityManager | None = None,
+        config: SimpleNamespace | None = None,
+        logger_path: str | None = None,
     ) -> None:
         self.player1 = player1
         self.player2 = player2
         self.buffer = buffer
         self.augment_fn = augment_fn
         self.verbose = verbose
-        self.logger = SampleLogger(
-            logger_path or "checkpoints/selfplay/selfplay_v2.jsonl"
-        )
+        self.logger = SampleLogger(logger_path or "checkpoints/selfplay/selfplay_v2.jsonl")
         self.div_manager = diversity_manager
         self.config = config
         self.recent_open5_keys = deque(maxlen=200)
@@ -71,12 +67,8 @@ class SelfPlayRunner:
 
         if self.config is not None:
             self.tau_cutoff_plies = getattr(config, "tau_cutoff_plies", 12)
-            self.phase_cutoffs = getattr(
-                config, "phase_cutoffs", {"early": 12, "mid": 28}
-            )
-            self.sim_budget = getattr(
-                config, "sim_budget", {"early": 300, "mid": 200, "late": 120}
-            )
+            self.phase_cutoffs = getattr(config, "phase_cutoffs", {"early": 12, "mid": 28})
+            self.sim_budget = getattr(config, "sim_budget", {"early": 300, "mid": 200, "late": 120})
 
     def play_game(self) -> int:
         """Play a single self-play game and store the resulting data."""
@@ -155,9 +147,7 @@ class SelfPlayRunner:
                 board_size = board.board_size
                 pi_arr = np.zeros((board_size, board_size), dtype=np.float32)
                 for move, prob in visit_probs.items():
-                    r, c = (
-                        move if isinstance(move, tuple) else board.index_to_move(move)
-                    )
+                    r, c = move if isinstance(move, tuple) else board.index_to_move(move)
                     pi_arr[r, c] = prob
                 pi = torch.from_numpy(pi_arr)
 
@@ -167,14 +157,10 @@ class SelfPlayRunner:
 
                 with torch.no_grad():
                     logits, _ = current_player.mcts.evaluator_fn.model(
-                        state_tensor.unsqueeze(0).to(
-                            current_player.mcts.evaluator_fn.device
-                        )
+                        state_tensor.unsqueeze(0).to(current_player.mcts.evaluator_fn.device)
                     )
                     net_pi = (
-                        torch.softmax(logits.view(-1), dim=0)
-                        .view(board_size, board_size)
-                        .cpu()
+                        torch.softmax(logits.view(-1), dim=0).view(board_size, board_size).cpu()
                     )
 
                 h_mcts = entropy_over_legal(pi, legal_mask)
@@ -231,11 +217,7 @@ class SelfPlayRunner:
                     early_entropies.append(float(h_mcts))
 
                 if move_number < tau_cutoff:
-                    topk = (
-                        torch.topk(pi.view(-1), k=min(5, pi.numel()))
-                        .values.sum()
-                        .item()
-                    )
+                    topk = torch.topk(pi.view(-1), k=min(5, pi.numel())).values.sum().item()
                     stats = current_player.mcts.root_visit_stats() or {}
                     sched = getattr(current_player.mcts, "last_depth_cs", [])
                     root_c = (
@@ -283,8 +265,7 @@ class SelfPlayRunner:
                         opening_memory_hit = 1
                         if (
                             self.games_played_in_batch > 10
-                            and (self.opening_restarts / self.games_played_in_batch)
-                            > 0.2
+                            and (self.opening_restarts / self.games_played_in_batch) > 0.2
                         ):
                             self.opening_guard_disabled = True
                         force_uniform_root = True
@@ -316,7 +297,7 @@ class SelfPlayRunner:
 
             final_data = []
             for (state_tensor, pi_tensor, player_sign), rec in zip(
-                game_data, recs_this_game
+                game_data, recs_this_game, strict=True
             ):
                 z = 0.0 if winner == 0 else (1.0 if winner == player_sign else -1.0)
                 final_data.append((state_tensor, pi_tensor, z))
@@ -367,9 +348,7 @@ class SelfPlayRunner:
         cutoff = self.tau_cutoff_plies
 
         # Check for per-ply temperature mapping
-        tau_early_plies = (
-            getattr(self.config, "tau_early_plies", None) if self.config else None
-        )
+        tau_early_plies = getattr(self.config, "tau_early_plies", None) if self.config else None
 
         if tau_early_plies:
             # Handle both int and str keys (JSON serialization converts int keys to str)
@@ -390,9 +369,7 @@ class SelfPlayRunner:
         return int(budget[self._phase_for_move(move_number)])
 
 
-def initialize_model(
-    device: str, checkpoint_path: Optional[str] = None
-) -> PolicyValueNet:
+def initialize_model(device: str, checkpoint_path: str | None = None) -> PolicyValueNet:
     model = PolicyValueNet(board_size=8).to(device)
     model._init_weights()
     if checkpoint_path and os.path.exists(checkpoint_path):
@@ -410,7 +387,7 @@ def create_players(
     evaluator: NeuralEvaluator,
     n_simulations: int,
     config: SimpleNamespace,
-) -> Tuple[MCTSPlayer, MCTSPlayer]:
+) -> tuple[MCTSPlayer, MCTSPlayer]:
     """Create two MCTS players using parameters from config."""
     player_kwargs = {
         "temperature": config.temperature,
@@ -444,7 +421,7 @@ def create_players(
 
 def run_selfplay_pipeline(
     config: Any, load_checkpoint: bool = False
-) -> Tuple[PolicyValueNet, ReplayBuffer]:
+) -> tuple[PolicyValueNet, ReplayBuffer]:
     """Run a full self-play pipeline."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logging.info(f"Using device: {device}")
@@ -452,10 +429,10 @@ def run_selfplay_pipeline(
     cycle = int(getattr(config, "cycle", 1))
     paths = cycle_paths(cycle)
     prev_paths = cycle_paths(cycle - 1)
-    
+
     # Ensure c_puct_schedule is disabled in saved config (self-play never uses it)
     config.c_puct_schedule = {"enabled": False}
-    
+
     save_config(config, paths["config"])
     t0 = time.time()
 
@@ -482,9 +459,7 @@ def run_selfplay_pipeline(
         logging.info("No existing buffer found. Checking for previous cycle buffer.")
         prev_buf_path = str(prev_paths["buffer"])
         if os.path.exists(prev_buf_path):
-            logging.info(
-                f"Seeding new buffer from previous cycle buffer: {prev_buf_path}"
-            )
+            logging.info(f"Seeding new buffer from previous cycle buffer: {prev_buf_path}")
             prev = ReplayBuffer.load(prev_buf_path)
 
             # Seed with 25% of the buffer capacity from the tail of the previous buffer
@@ -502,7 +477,7 @@ def run_selfplay_pipeline(
             # Log metadata about the seeding process
             meta_path = paths["meta"]
             if os.path.exists(meta_path):
-                with open(meta_path, "r") as f:
+                with open(meta_path) as f:
                     meta = json.load(f)
             else:
                 meta = {}
@@ -518,9 +493,7 @@ def run_selfplay_pipeline(
             save_json(meta, meta_path)
 
         else:
-            logging.info(
-                "No previous cycle buffer found. Initializing new ReplayBuffer."
-            )
+            logging.info("No previous cycle buffer found. Initializing new ReplayBuffer.")
             buffer = ReplayBuffer(max_size=config.replay_buffer_size)
 
     diversity_manager = DiversityManager(
@@ -540,7 +513,7 @@ def run_selfplay_pipeline(
 
     len_before = len(buffer)
     added_total = 0
-    for i in trange(config.num_self_play_games, desc="Self-play games"):
+    for _i in trange(config.num_self_play_games, desc="Self-play games"):
         added_total += runner.play_game()
     len_after = len(buffer)
     logging.debug(

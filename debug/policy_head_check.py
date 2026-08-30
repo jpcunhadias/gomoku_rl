@@ -141,9 +141,7 @@ def main():
     # checkbox summary (entropy band mainly meaningful for early-game heavy batches)
     early_band_ok = 0.45 <= np.median(h_norms) <= 0.65
     print("\n=== CHECKBOX SUMMARY ===")
-    print(
-        f"[{'x' if violations_illegal == 0 else ' '}] π[illegal] == 0 for all used samples"
-    )
+    print(f"[{'x' if violations_illegal == 0 else ' '}] π[illegal] == 0 for all used samples")
     print(f"[{'x' if violations_norm == 0 else ' '}] sum(π on legal) == 1 (±1e-6)")
     print(
         f"[{'x' if early_band_ok else ' '}] normalized entropy median in [0.45, 0.65] (exploration sanity)"

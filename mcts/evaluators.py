@@ -1,5 +1,5 @@
 import random
-from typing import Any, List, Tuple
+from typing import Any
 
 import torch
 
@@ -16,10 +16,8 @@ class NeuralEvaluator:
         self.device = device
         self.model.eval()
 
-    def __call__(self, board: Any) -> Tuple[List[Tuple[Any, float]], float]:
-        tensor_input = (
-            board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
-        )
+    def __call__(self, board: Any) -> tuple[list[tuple[Any, float]], float]:
+        tensor_input = board_to_tensor(board, board.current_player).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
             policy_logits, value = self.model(tensor_input)
@@ -40,7 +38,7 @@ class NeuralEvaluator:
         else:
             legal_probs = [p / s for p in legal_probs]
 
-        action_priors = list(zip(legal_moves, legal_probs))
+        action_priors = list(zip(legal_moves, legal_probs, strict=True))
         return action_priors, value
 
 
@@ -53,14 +51,12 @@ class ThreatRolloutEvaluator:
     - Always returns uniform priors and scalar value.
     """
 
-    def __init__(
-        self, rollout_depth: int = 20, num_rollouts: int = 2, epsilon: float = 0.1
-    ):
+    def __init__(self, rollout_depth: int = 20, num_rollouts: int = 2, epsilon: float = 0.1):
         self.rollout_depth = rollout_depth
         self.num_rollouts = num_rollouts
         self.epsilon = epsilon
 
-    def __call__(self, board: GomokuBoard) -> Tuple[List[Tuple[Any, float]], float]:
+    def __call__(self, board: GomokuBoard) -> tuple[list[tuple[Any, float]], float]:
         legal_moves = board.get_legal_moves()
         if not legal_moves:
             return [], 0.0
@@ -113,7 +109,7 @@ class ThreatRolloutEvaluator:
         diff = own_score - opp_score
         return max(min(diff / 10.0, 1.0), -1.0)
 
-    def _rollout_policy(self, board: GomokuBoard) -> Tuple[int, int]:
+    def _rollout_policy(self, board: GomokuBoard) -> tuple[int, int]:
         legal_moves = board.get_legal_moves()
         if not legal_moves:
             return (-1, -1)

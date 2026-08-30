@@ -1,8 +1,8 @@
+from cli.play.utils import play_game
 from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer, RandomPlayer
-from mcts.mcts import MCTS
-from cli.play.utils import play_game
 from mcts.evaluators import ThreatRolloutEvaluator
+from mcts.mcts import MCTS
 
 
 def play_mcts_pure_vs_random() -> None:

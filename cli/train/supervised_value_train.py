@@ -1,11 +1,12 @@
 # cli/train/supervised_value_train.py
 
 import pickle
+
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
-import matplotlib.pyplot as plt
 
 from model.policy_value_net import PolicyValueNet
 

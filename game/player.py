@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import random
 from enum import Enum, auto
-from typing import Any, Dict, List, Protocol, Tuple
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -22,7 +22,7 @@ class DirichletAlphaMode(Enum):
 class Player(Protocol):
     """Protocol for player implementations."""
 
-    def get_action(self, board: GomokuBoard, *args, **kwargs) -> Tuple[int, int]:
+    def get_action(self, board: GomokuBoard, *args, **kwargs) -> tuple[int, int]:
         """Return the action ``(row, col)`` chosen on ``board``."""
         ...
 
@@ -36,7 +36,7 @@ class RandomPlayer:
     def __repr__(self) -> str:
         return f"RandomPlayer({self.player_id})"
 
-    def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
+    def get_action(self, board: GomokuBoard) -> tuple[int, int]:
         """Return a randomly chosen legal move."""
         legal_moves = board.get_legal_moves()
         return random.choice(legal_moves)
@@ -48,13 +48,11 @@ class HumanPlayer:
     def __init__(self, player_id: int) -> None:
         self.player_id = player_id
 
-    def get_action(self, board: GomokuBoard) -> Tuple[int, int]:
+    def get_action(self, board: GomokuBoard) -> tuple[int, int]:
         """Prompt the user for a legal move."""
         while True:
             try:
-                move_str = input(
-                    f"Player {self.player_id}, enter your move as 'row,col': "
-                )
+                move_str = input(f"Player {self.player_id}, enter your move as 'row,col': ")
                 row, col = map(int, move_str.strip().split(","))
                 if board.is_legal_move(row, col):
                     return (row, col)
@@ -121,9 +119,7 @@ class MCTSPlayer:
             alpha_eff = self.get_dirichlet_alpha(board)
             # Use dirichlet_epsilon_root for move_number==0, else dirichlet_epsilon
             epsilon = (
-                self.dirichlet_epsilon_root
-                if self.move_number == 0
-                else self.dirichlet_epsilon
+                self.dirichlet_epsilon_root if self.move_number == 0 else self.dirichlet_epsilon
             )
             root_noise_tuple = (epsilon, alpha_eff)
 
@@ -137,11 +133,11 @@ class MCTSPlayer:
             selected_action = random.choice(legal_moves)
             if return_probs:
                 uniform = 1.0 / len(legal_moves) if legal_moves else 0.0
-                probs_dict: Dict[Any, float] = {m: uniform for m in legal_moves}
+                probs_dict: dict[Any, float] = {m: uniform for m in legal_moves}
                 return selected_action, probs_dict
             return selected_action
 
-        actions, probs = zip(*action_probs.items())
+        actions, probs = zip(*action_probs.items(), strict=True)
         probs = self._normalize_probabilities(list(probs))
 
         if self.temperature <= 1e-3:
@@ -153,7 +149,7 @@ class MCTSPlayer:
         return (selected_action, action_probs) if return_probs else selected_action
 
     @staticmethod
-    def _normalize_probabilities(probs: List[float]) -> List[float]:
+    def _normalize_probabilities(probs: list[float]) -> list[float]:
         """Clamp negatives, renormalize, uniform fallback if degenerate."""
         probs = [max(0.0, float(p)) for p in probs]
         s = sum(probs)
@@ -170,15 +166,14 @@ class MCTSPlayer:
         return float(np.clip(alpha, self.dirichlet_alpha_min, self.dirichlet_alpha_max))
 
     def _add_dirichlet_noise(
-        self, action_probs: Dict[Any, float], alpha: float
-    ) -> Dict[Any, float]:
+        self, action_probs: dict[Any, float], alpha: float
+    ) -> dict[Any, float]:
         actions = list(action_probs.keys())
         noise = np.random.dirichlet(np.array([alpha] * len(actions)))
         # convex mix keeps sum==1 if inputs sum==1
         return {
-            a: (1 - self.dirichlet_epsilon) * action_probs[a]
-            + self.dirichlet_epsilon * n
-            for a, n in zip(actions, noise)
+            a: (1 - self.dirichlet_epsilon) * action_probs[a] + self.dirichlet_epsilon * n
+            for a, n in zip(actions, noise, strict=True)
         }
 
     def set_arena_params(self, root_eps: float, tau0: float, tau1: float) -> None:

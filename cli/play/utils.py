@@ -4,9 +4,7 @@ from game.gomoku import GomokuBoard
 from game.player import MCTSPlayer
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def _ensure_tuple(board: GomokuBoard, action):
@@ -79,7 +77,9 @@ def play_game(
         board.render()
         logging.info("Game Over.")
 
-    winner_message = f"Winner: {'Player ' + str(board.get_winner()) if board.get_winner() else 'Draw'}"
+    winner_message = (
+        f"Winner: {'Player ' + str(board.get_winner()) if board.get_winner() else 'Draw'}"
+    )
     logging.info(winner_message)
 
     winner = board.get_winner()

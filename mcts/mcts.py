@@ -1,6 +1,7 @@
 import math
 import random
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -16,7 +17,7 @@ class MCTS:
         c_puct: float = 1.0,
         n_simulations: int = 800,
         use_rave: bool = True,
-        c_puct_schedule: Optional[dict] = None,
+        c_puct_schedule: dict | None = None,
     ) -> None:
         """
         Args:
@@ -30,7 +31,7 @@ class MCTS:
         self.n_simulations = n_simulations
         self.use_rave = use_rave
         self.root = TreeNode(use_rave=use_rave)
-        self.last_root_visit_counts: Union[Dict[Any, int], None] = None
+        self.last_root_visit_counts: dict[Any, int] | None = None
         self._root_noise_applied = False
         self.c_puct_schedule = c_puct_schedule or {"enabled": False}
         self.last_depth_cs = None
@@ -53,9 +54,7 @@ class MCTS:
 
         if node == self.root:
             legal_moves_set = set(state.get_legal_moves())
-            illegal_children = [
-                action for action in node.children if action not in legal_moves_set
-            ]
+            illegal_children = [action for action in node.children if action not in legal_moves_set]
             for action in illegal_children:
                 del node.children[action]
 
@@ -108,14 +107,14 @@ class MCTS:
             return
         actions = list(node.children.keys())
         noise = np.random.dirichlet([alpha] * len(actions))
-        for a, n in zip(actions, noise):
+        for a, n in zip(actions, noise, strict=True):
             node.children[a].P = (1.0 - epsilon) * node.children[a].P + epsilon * n
 
     def get_action_probs(
         self,
         board,
         temp: float = 1e-3,
-        root_noise: Union[Tuple[float, float], None] = None,
+        root_noise: tuple[float, float] | None = None,
     ):
         # Ensure root is expanded at least once
         if not self.root.children:
@@ -149,9 +148,7 @@ class MCTS:
         self._root_noise_applied = False
         self.last_depth_cs = []
 
-    def _normalize_counts(
-        self, counts: Dict[Any, int], temp: float
-    ) -> Dict[Any, float]:
+    def _normalize_counts(self, counts: dict[Any, int], temp: float) -> dict[Any, float]:
         if not counts:
             return {}
 
@@ -163,7 +160,14 @@ class MCTS:
 
         counts_arr = np.array(list(counts.values()), dtype=np.float64)
         actions = list(counts.keys())
-        
+
+        if np.sum(counts_arr) == 0:
+            # All children have zero visits (e.g. n_simulations too low to visit any
+            # child beyond the root) - fall back to uniform rather than dividing by
+            # zero, which would silently produce NaN probabilities.
+            uniform = 1.0 / len(actions)
+            return {a: uniform for a in actions}
+
         # Use log-space to avoid overflow: log(count^(1/T)) = log(count)/T
         exponent = 1.0 / temp
         if exponent > 10:  # Would cause overflow with large counts
@@ -175,15 +179,11 @@ class MCTS:
         else:
             counts_arr = np.power(counts_arr, exponent)
             probs = counts_arr / np.sum(counts_arr)
-        
-        return dict(zip(actions, probs))
+
+        return dict(zip(actions, probs, strict=True))
 
     def root_visit_stats(self):
-        vc = (
-            list(self.last_root_visit_counts.values())
-            if self.last_root_visit_counts
-            else []
-        )
+        vc = list(self.last_root_visit_counts.values()) if self.last_root_visit_counts else []
         if not vc:
             return None
         return {
@@ -192,8 +192,6 @@ class MCTS:
             "max": int(max(vc)),
             "mean": float(sum(vc) / len(vc)),
         }
-
-
 
     def _effective_c_puct(self, depth: int) -> float:
         """

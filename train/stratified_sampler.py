@@ -2,7 +2,6 @@ import json
 import math
 import random
 from collections import Counter, defaultdict
-from typing import Dict, List, Optional, Tuple
 
 from train.bucketer import BucketKey, bucket_key
 
@@ -35,8 +34,8 @@ class StratifiedBatchSampler:
         self,
         sidecar_jsonl: str,
         buffer_len_fn,
-        target_mix: Dict[BucketKey, float],
-        rng: Optional[random.Random] = None,
+        target_mix: dict[BucketKey, float],
+        rng: random.Random | None = None,
         refresh_every: int = 1000,
     ) -> None:
         self.sidecar_jsonl = sidecar_jsonl
@@ -47,19 +46,19 @@ class StratifiedBatchSampler:
         s = sum(target_mix.values())
         self.target_mix = {k: v / s for k, v in target_mix.items()}  # normalize
 
-        self._bucket_indices: Dict[BucketKey, List[int]] = defaultdict(list)
+        self._bucket_indices: dict[BucketKey, list[int]] = defaultdict(list)
         self._calls = 0
         self._last_buffer_len = -1
-        self._idx_to_bucket: Dict[int, BucketKey] = {}
+        self._idx_to_bucket: dict[int, BucketKey] = {}
         self._epoch_counts: Counter = Counter()
 
-    def _load_tail_aligned(self) -> List[Tuple[int, dict]]:
+    def _load_tail_aligned(self) -> list[tuple[int, dict]]:
         buf_len = self.buffer_len_fn()
         self._last_buffer_len = buf_len
 
         # Read admitted records
-        admitted: List[dict] = []
-        with open(self.sidecar_jsonl, "r") as f:
+        admitted: list[dict] = []
+        with open(self.sidecar_jsonl) as f:
             for line in f:
                 try:
                     rec = json.loads(line)
@@ -84,7 +83,7 @@ class StratifiedBatchSampler:
     def begin_epoch(self) -> None:
         self._epoch_counts.clear()
 
-    def end_epoch_report(self) -> Dict[BucketKey, int]:
+    def end_epoch_report(self) -> dict[BucketKey, int]:
         out = dict(self._epoch_counts)
         self._epoch_counts = Counter()
         return out
@@ -94,12 +93,12 @@ class StratifiedBatchSampler:
         if self._calls % self.refresh_every == 0 or cur_len != self._last_buffer_len:
             self.refresh()
 
-    def sample_indices(self, batch_size: int) -> List[int]:
+    def sample_indices(self, batch_size: int) -> list[int]:
         self._calls += 1
         self._ensure_fresh()
 
         # desired counts
-        desired: Dict[BucketKey, int] = {}
+        desired: dict[BucketKey, int] = {}
         rem = batch_size
         for k, frac in self.target_mix.items():
             n = int(math.floor(frac * batch_size))
@@ -107,9 +106,7 @@ class StratifiedBatchSampler:
             rem -= n
         # distribute remainder by availability
         if rem > 0:
-            by_avail = sorted(
-                self._bucket_indices.items(), key=lambda kv: len(kv[1]), reverse=True
-            )
+            by_avail = sorted(self._bucket_indices.items(), key=lambda kv: len(kv[1]), reverse=True)
             i = 0
             while rem > 0 and by_avail:
                 k = by_avail[i % len(by_avail)][0]
@@ -117,7 +114,7 @@ class StratifiedBatchSampler:
                 rem -= 1
                 i += 1
 
-        picked: List[int] = []
+        picked: list[int] = []
         used = set()  # avoid dup within batch
 
         def _record(idx: int) -> None:

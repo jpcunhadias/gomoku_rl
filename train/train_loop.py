@@ -1,7 +1,7 @@
 import os
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -14,7 +14,7 @@ from train.bucketer import BucketKey
 from train.replay_buffer import ReplayBuffer
 
 
-def _write_debug_log(path: Optional[str], content: str) -> None:
+def _write_debug_log(path: str | None, content: str) -> None:
     """Helper method to write debug logs safely."""
     if path:
         try:
@@ -33,15 +33,15 @@ class AlphaZeroTrainer:
         optimizer: optim.Optimizer,
         replay_buffer: ReplayBuffer,
         config: Any,
-        config_hash: Optional[str] = None, # Added config_hash
+        config_hash: str | None = None,  # Added config_hash
         device: str = "cpu",
         best_value_loss: float = float("inf"),
-        save_paths: Optional[Dict[str, Path]] = None,
+        save_paths: dict[str, Path] | None = None,
     ) -> None:
         self.model = model.to(device)
         self.optimizer = optimizer
         self.config = config
-        self.config_hash = config_hash # Store the hash
+        self.config_hash = config_hash  # Store the hash
         self.device = device
         self.batch_size = config.batch_size
         self.epochs = config.epochs
@@ -63,7 +63,7 @@ class AlphaZeroTrainer:
         # triggers mid-training, the freshly reloaded buffer isn't re-split - not
         # exercised in practice since epochs never reach the (very high) default.
         holdout_frac = getattr(config, "holdout_frac", 0.1)
-        self.holdout_samples: List[Tuple[torch.Tensor, torch.Tensor, float]] = []
+        self.holdout_samples: list[tuple[torch.Tensor, torch.Tensor, float]] = []
         min_buffer_for_holdout = max(200, self.batch_size * 4)
         if holdout_frac > 0 and len(replay_buffer) >= min_buffer_for_holdout:
             samples = list(replay_buffer.buffer)
@@ -115,7 +115,7 @@ class AlphaZeroTrainer:
         target_policy: torch.Tensor,
         value_pred: torch.Tensor,
         target_value: torch.Tensor,
-    ) -> Tuple[torch.Tensor, float, float]:
+    ) -> tuple[torch.Tensor, float, float]:
         target_policy = target_policy.to(torch.float32)
         target_value = target_value.view(-1).to(torch.float32)
 
@@ -127,7 +127,7 @@ class AlphaZeroTrainer:
 
         return total_loss, policy_loss.item(), value_loss.item()
 
-    def evaluate_holdout_value_loss(self) -> Optional[float]:
+    def evaluate_holdout_value_loss(self) -> float | None:
         """Value loss on the held-out split, if one was created. None otherwise."""
         if not self.holdout_samples:
             return None
@@ -140,11 +140,9 @@ class AlphaZeroTrainer:
         with torch.no_grad():
             for i in range(0, n, chunk):
                 batch = self.holdout_samples[i : i + chunk]
-                states, _, target_values = zip(*batch)
+                states, _, target_values = zip(*batch, strict=True)
                 states = torch.stack(states).to(self.device)
-                target_values = torch.tensor(
-                    target_values, dtype=torch.float32, device=self.device
-                )
+                target_values = torch.tensor(target_values, dtype=torch.float32, device=self.device)
                 _, value_pred = self.model(states)
                 loss = self.value_loss_fn(value_pred.view(-1), target_values)
                 total_loss += loss.item() * len(batch)
@@ -152,21 +150,13 @@ class AlphaZeroTrainer:
             self.model.train()
         return total_loss / n
 
-    def train(self, debug: bool = False) -> Tuple[Optional[int], float]:
+    def train(self, debug: bool = False) -> tuple[int | None, float]:
         self.model.train()
 
-        loss_log_path = (
-            os.path.join("checkpoints", "train_loss_summary.log") if debug else None
-        )
-        stats_log_path = (
-            os.path.join("checkpoints", "value_pred_stats.log") if debug else None
-        )
-        grad_log_path = (
-            os.path.join("checkpoints", "gradient_debug.log") if debug else None
-        )
-        value_debug_path = (
-            os.path.join("checkpoints", "value_pred_debug.log") if debug else None
-        )
+        loss_log_path = os.path.join("checkpoints", "train_loss_summary.log") if debug else None
+        stats_log_path = os.path.join("checkpoints", "value_pred_stats.log") if debug else None
+        grad_log_path = os.path.join("checkpoints", "gradient_debug.log") if debug else None
+        value_debug_path = os.path.join("checkpoints", "value_pred_debug.log") if debug else None
 
         for epoch in range(1, self.epochs + 1):
             epoch_policy_loss = 0.0
@@ -174,9 +164,7 @@ class AlphaZeroTrainer:
             value_preds_this_epoch = []
 
             if epoch % self.reload_buffer_every == 0 and epoch != 1:
-                print(
-                    f"[Trainer] Reloading replay buffer from disk at epoch {epoch}..."
-                )
+                print(f"[Trainer] Reloading replay buffer from disk at epoch {epoch}...")
                 self.replay_buffer = ReplayBuffer.load("checkpoints/replay_buffer.pkl")
                 if self.sampler is not None:
                     self.sampler.refresh()
@@ -199,7 +187,7 @@ class AlphaZeroTrainer:
                 else:
                     idxs = self.sampler.sample_indices(self.batch_size)
                     batch = [self.replay_buffer.buffer[i] for i in idxs]
-                    states, target_policies, target_values = zip(*batch)
+                    states, target_policies, target_values = zip(*batch, strict=True)
 
                     states = torch.stack(states).to(self.device)
                     target_policies = torch.stack(target_policies).to(self.device)
@@ -224,12 +212,13 @@ class AlphaZeroTrainer:
 
                     _write_debug_log(
                         value_debug_path,
-                        f"\nEpoch {epoch}, Step {step}:\n" \
+                        f"\nEpoch {epoch}, Step {step}:\n"
                         + "".join(
                             f"  z: {target}, v: {float(pred):.4f}\n"
                             for pred, target in zip(
                                 value_pred.detach().cpu().view(-1).tolist()[:8],
                                 target_values.detach().cpu().tolist()[:8],
+                                strict=True,
                             )
                         ),
                     )
@@ -243,7 +232,7 @@ class AlphaZeroTrainer:
                 if debug:
                     _write_debug_log(
                         grad_log_path,
-                        f"\nEpoch {epoch}, Step {step}:\n" \
+                        f"\nEpoch {epoch}, Step {step}:\n"
                         + "".join(
                             f"[{('Value' if 'value' in name else 'Policy')}] {name}: {param.grad.norm().item():.6f}\n"
                             for name, param in self.model.named_parameters()
@@ -275,9 +264,7 @@ class AlphaZeroTrainer:
                     f"Epoch {epoch}: value_pred mean = {mean_of_means:.4f}, std = {mean_of_stds:.4f}\n",
                 )
 
-            print(
-                f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}"
-            )
+            print(f"Epoch {epoch}: Policy Loss = {avg_p_loss:.4f}, Value Loss = {avg_v_loss:.4f}")
 
             if self.sampler is not None:
                 total_examples = self.batch_size * self.steps_per_epoch
@@ -292,12 +279,8 @@ class AlphaZeroTrainer:
                     requested_counts.setdefault(k, 0)
                     realized_counts.setdefault(k, 0)
 
-                req_frac = {
-                    k: requested_counts[k] / max(1, total_examples) for k in target_mix
-                }
-                rel_frac = {
-                    k: realized_counts[k] / max(1, total_examples) for k in target_mix
-                }
+                req_frac = {k: requested_counts[k] / max(1, total_examples) for k in target_mix}
+                rel_frac = {k: realized_counts[k] / max(1, total_examples) for k in target_mix}
                 l1_gap = sum(abs(req_frac[k] - rel_frac[k]) for k in target_mix)
 
                 if getattr(self.config, "report_sampler_mix", False):
@@ -326,13 +309,9 @@ class AlphaZeroTrainer:
             if selection_loss < self.best_value_loss:
                 self.best_value_loss = selection_loss
                 self.best_epoch = epoch
-                self.save_checkpoint(
-                    epoch=epoch, label="best", best_value_loss=selection_loss
-                )
+                self.save_checkpoint(epoch=epoch, label="best", best_value_loss=selection_loss)
                 label = "held-out value loss" if holdout_v_loss is not None else "value loss"
-                print(
-                    f"Best model updated ({label} = {selection_loss:.4f}) → saved as best"
-                )
+                print(f"Best model updated ({label} = {selection_loss:.4f}) → saved as best")
 
             self.writer.add_scalar("Loss/Policy", avg_p_loss, epoch)
             self.writer.add_scalar("Loss/Value", avg_v_loss, epoch)
@@ -350,14 +329,10 @@ class AlphaZeroTrainer:
                     global_step=epoch,
                 )
 
-                print(
-                    f"[Eval] Win Rate vs Pure MCTS after Epoch {epoch}: {win_rate:.2f}"
-                )
+                print(f"[Eval] Win Rate vs Pure MCTS after Epoch {epoch}: {win_rate:.2f}")
 
                 if win_rate >= self.target_win_rate:
-                    print(
-                        f"Early stopping: Target win rate {self.target_win_rate:.2f} achieved!"
-                    )
+                    print(f"Early stopping: Target win rate {self.target_win_rate:.2f} achieved!")
                     break
 
         print(
@@ -370,7 +345,7 @@ class AlphaZeroTrainer:
         self,
         epoch: int,
         label: str = "latest",
-        best_value_loss: Optional[float] = None,
+        best_value_loss: float | None = None,
     ):
         ckpt = {
             "model_state_dict": self.model.state_dict(),
@@ -380,7 +355,7 @@ class AlphaZeroTrainer:
         if best_value_loss is not None:
             ckpt["best_value_loss"] = best_value_loss
         if self.config_hash:
-            ckpt["config_hash"] = self.config_hash # Add hash to checkpoint
+            ckpt["config_hash"] = self.config_hash  # Add hash to checkpoint
 
         if self.save_paths:
             if label == "best":
@@ -396,17 +371,24 @@ def run_training(
     optimizer: optim.Optimizer,
     buffer: ReplayBuffer,
     config: Any,
-    config_hash: Optional[str] = None, # Added config_hash
+    config_hash: str | None = None,  # Added config_hash
     best_value_loss: float = float("inf"),
     debug: bool = False,
-    save_paths: Optional[Dict[str, Path]] = None,
-) -> Tuple[Optional[int], float]:
+    save_paths: dict[str, Path] | None = None,
+) -> tuple[int | None, float]:
     """Utility to create a  and start training."""
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
     trainer = AlphaZeroTrainer(
-        model, optimizer, buffer, config, config_hash, device, best_value_loss, save_paths=save_paths
+        model,
+        optimizer,
+        buffer,
+        config,
+        config_hash,
+        device,
+        best_value_loss,
+        save_paths=save_paths,
     )
     return trainer.train(debug=debug)

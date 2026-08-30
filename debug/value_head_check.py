@@ -24,7 +24,6 @@ import argparse
 import math
 import os
 import random
-from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -65,7 +64,7 @@ def load_buffer(path: str) -> ReplayBuffer:
 
 def sample_batch_with_all_classes(
     buffer: ReplayBuffer, batch_size: int, tries: int = 10
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Try to get a batch that contains all classes {-1,0,+1} (or {0,1,2} legacy).
     Falls back to the last sample if not possible (small buffers).
@@ -99,9 +98,7 @@ def brier_score(v_hat: np.ndarray, z: np.ndarray) -> float:
     return float(np.mean((v_hat - z) ** 2))
 
 
-def scalar_ece(
-    v_hat: np.ndarray, z: np.ndarray, num_bins: int = 10
-) -> Tuple[float, np.ndarray]:
+def scalar_ece(v_hat: np.ndarray, z: np.ndarray, num_bins: int = 10) -> tuple[float, np.ndarray]:
     """
     ECE-style metric for scalar [-1,1]: partition predictions into bins, compute
     |mean_pred - mean_true| per bin, and return weighted average by bin mass.
@@ -244,7 +241,7 @@ def main():
     states, _, values_raw = sample_batch_with_all_classes(buffer, args.batch)
     z = maybe_map_legacy_targets_to_scalar(values_raw).numpy().astype(np.float32)
     unique_z, counts_z = np.unique(z, return_counts=True)
-    z_counts = {float(k): int(v) for k, v in zip(unique_z.tolist(), counts_z.tolist())}
+    z_counts = {float(k): int(v) for k, v in zip(unique_z.tolist(), counts_z.tolist(), strict=True)}
 
     # Move states to device & infer
     states = states.to(device)
@@ -290,14 +287,8 @@ def main():
     neg_mask = z == -1.0
     draw_mask = z == 0.0
     pos_rate = float(np.mean(v_hat[pos_mask] > 0.7)) if pos_mask.any() else float("nan")
-    neg_rate = (
-        float(np.mean(v_hat[neg_mask] < -0.7)) if neg_mask.any() else float("nan")
-    )
-    draw_rate = (
-        float(np.mean(np.abs(v_hat[draw_mask]) < 0.2))
-        if draw_mask.any()
-        else float("nan")
-    )
+    neg_rate = float(np.mean(v_hat[neg_mask] < -0.7)) if neg_mask.any() else float("nan")
+    draw_rate = float(np.mean(np.abs(v_hat[draw_mask]) < 0.2)) if draw_mask.any() else float("nan")
 
     print("\nThreshold sanity:")
     print(f"  P(v̂>0.7 | z=+1): {pos_rate:.3f}")
@@ -308,9 +299,7 @@ def main():
     if pretanh_available:
         print(f"\nPre-tanh saturation: share(|pre_tanh|>2.0) = {sat_share:.3f}")
     else:
-        print(
-            "\n[WARN] Could not capture pre-tanh activations (no model.value_fc hook)."
-        )
+        print("\n[WARN] Could not capture pre-tanh activations (no model.value_fc hook).")
 
     # Plots
     plot_histograms(v_hat, z, args.output)

@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, Optional
 
 
 class ResidualBlock(nn.Module):
@@ -43,9 +42,7 @@ class PolicyValueNet(nn.Module):
         self.bn_input = nn.BatchNorm2d(64)
 
         # Residual Blocks
-        self.residual_blocks = nn.Sequential(
-            *[ResidualBlock(64, 64) for _ in range(num_blocks)]
-        )
+        self.residual_blocks = nn.Sequential(*[ResidualBlock(64, 64) for _ in range(num_blocks)])
 
         # Policy Head
         self.policy_conv = nn.Conv2d(64, 2, kernel_size=1)
@@ -58,7 +55,7 @@ class PolicyValueNet(nn.Module):
         # Initialize weights
         self._init_weights()
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return policy logits and value for input ``x``."""
 
         # Input Layer
@@ -93,7 +90,7 @@ class PolicyValueNet(nn.Module):
         path: str,
         board_size: int = 8,
         num_blocks: int = 5,
-        device: Optional[str] = None,
+        device: str | None = None,
     ) -> "PolicyValueNet":
         """
         Loads a model from a checkpoint that contains 'model_state_dict'.

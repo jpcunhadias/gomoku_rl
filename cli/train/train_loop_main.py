@@ -45,9 +45,7 @@ def main() -> None:
     model._init_weights()
     model.to(device)
 
-    value_params = list(model.value_conv.parameters()) + list(
-        model.value_fc.parameters()
-    )
+    value_params = list(model.value_conv.parameters()) + list(model.value_fc.parameters())
     value_param_ids = {id(p) for p in value_params}
     policy_params = [p for p in model.parameters() if id(p) not in value_param_ids]
 

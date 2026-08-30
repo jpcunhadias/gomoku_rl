@@ -15,17 +15,16 @@ Usage:
 import argparse
 import json
 from pathlib import Path
-from typing import List, Tuple
 
 import torch
 
 from train.replay_buffer import ReplayBuffer
 
 
-def load_jsonl_samples(jsonl_path: str) -> List[dict]:
+def load_jsonl_samples(jsonl_path: str) -> list[dict]:
     """Load all training samples from JSONL, skipping game summaries."""
     samples = []
-    with open(jsonl_path, "r") as f:
+    with open(jsonl_path) as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -44,7 +43,7 @@ def load_jsonl_samples(jsonl_path: str) -> List[dict]:
     return samples
 
 
-def convert_sample_to_buffer_entry(sample: dict) -> Tuple[torch.Tensor, torch.Tensor, float]:
+def convert_sample_to_buffer_entry(sample: dict) -> tuple[torch.Tensor, torch.Tensor, float]:
     """
     Convert a JSON sample to a buffer entry tuple.
 
@@ -120,7 +119,7 @@ def reconstruct_buffer(
 
     # Convert samples to buffer entries
     print("Converting samples to buffer format...")
-    buffer_entries: List[Tuple[torch.Tensor, torch.Tensor, float]] = []
+    buffer_entries: list[tuple[torch.Tensor, torch.Tensor, float]] = []
 
     for i, sample in enumerate(samples):
         try:
@@ -239,4 +238,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

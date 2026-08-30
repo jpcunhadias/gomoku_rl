@@ -20,9 +20,7 @@ from train.replay_buffer import ReplayBuffer
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def load_model_flex(
-    path: str, board_size: int = 8, device: str = DEVICE
-) -> PolicyValueNet:
+def load_model_flex(path: str, board_size: int = 8, device: str = DEVICE) -> PolicyValueNet:
     """Load a PolicyValueNet from either {'model_state_dict': ...} or raw state_dict."""
     path = str(path)
     ckpt = torch.load(path, map_location=device)
@@ -109,9 +107,7 @@ def main():
     print("\n=== TRAINING SMOKE SUMMARY ===")
     print(f"Policy loss (first→last): {policy_losses[0]:.4f} → {policy_losses[-1]:.4f}")
     print(f"Value  loss (first→last): {value_losses[0]:.4f} → {value_losses[-1]:.4f}")
-    print(
-        f"Grad-norm median/95p: {np.median(grad_arr):.3f} / {np.percentile(grad_arr, 95):.3f}"
-    )
+    print(f"Grad-norm median/95p: {np.median(grad_arr):.3f} / {np.percentile(grad_arr, 95):.3f}")
 
     print("\n=== CHECKBOX SUMMARY ===")
     print("[x] steps completed without NaNs/Inf")

@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import torch
@@ -19,7 +19,7 @@ class SampleLogger:
             return x.tolist()
         return x
 
-    def write(self, rec: Dict[str, Any]):
+    def write(self, rec: dict[str, Any]):
         with open(self.out_path, "a") as f:
             json.dump({k: self._to_serializable(v) for k, v in rec.items()}, f)
             f.write("\n")

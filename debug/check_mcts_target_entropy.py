@@ -23,9 +23,10 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 import argparse
+import math
 
 import numpy as np
-import math
+
 from train.replay_buffer import ReplayBuffer
 
 
@@ -38,13 +39,13 @@ def entropy(p):
 def print_stats(label, h_norms):
     h_norms = np.asarray(h_norms, dtype=np.float64)
     if len(h_norms) == 0:
-        print(f'{label}: no samples with >1 legal move in target (all one-hot/terminal)')
+        print(f"{label}: no samples with >1 legal move in target (all one-hot/terminal)")
         return None
     median = float(np.median(h_norms))
     print(
-        f'{label}: n={len(h_norms):4d}  mean={h_norms.mean():.3f}  median={median:.3f}  '
-        f'IQR=[{np.percentile(h_norms, 25):.3f}, {np.percentile(h_norms, 75):.3f}]  '
-        f'min={h_norms.min():.3f} max={h_norms.max():.3f}'
+        f"{label}: n={len(h_norms):4d}  mean={h_norms.mean():.3f}  median={median:.3f}  "
+        f"IQR=[{np.percentile(h_norms, 25):.3f}, {np.percentile(h_norms, 75):.3f}]  "
+        f"min={h_norms.min():.3f} max={h_norms.max():.3f}"
     )
     return median
 
@@ -66,7 +67,7 @@ args = parser.parse_args()
 
 # Load buffer
 buffer = ReplayBuffer.load(args.buffer)
-print(f'Buffer size: {len(buffer)} samples')
+print(f"Buffer size: {len(buffer)} samples")
 print()
 
 # Sample a large batch to get good statistics
@@ -95,57 +96,57 @@ for b in range(len(target_pi_np)):
         h_all.append(h_norm)
         h_by_ply.setdefault(int(ply_np[b]), []).append(h_norm)
 
-print('=== MCTS TARGET POLICY ENTROPY, PER PLY ===')
+print("=== MCTS TARGET POLICY ENTROPY, PER PLY ===")
 for ply in sorted(k for k in h_by_ply if k < args.tau_cutoff_plies):
-    print_stats(f'  ply={ply}', h_by_ply[ply])
+    print_stats(f"  ply={ply}", h_by_ply[ply])
 cutoff_pooled = [h for p, hs in h_by_ply.items() if p >= args.tau_cutoff_plies for h in hs]
-print_stats(f'  ply>={args.tau_cutoff_plies} (tau=0, pooled)', cutoff_pooled)
+print_stats(f"  ply>={args.tau_cutoff_plies} (tau=0, pooled)", cutoff_pooled)
 
 print()
-print('=== MCTS TARGET POLICY ENTROPY, POOLED ACROSS ALL PLIES (legacy aggregate) ===')
-print('NOTE: mixes a ply where tau clearly matters (0) with plies where it barely does once')
-print('the model has real signal (see per-ply breakdown above) -- treat this number with')
-print('caution, not as the primary signal.')
+print("=== MCTS TARGET POLICY ENTROPY, POOLED ACROSS ALL PLIES (legacy aggregate) ===")
+print("NOTE: mixes a ply where tau clearly matters (0) with plies where it barely does once")
+print("the model has real signal (see per-ply breakdown above) -- treat this number with")
+print("caution, not as the primary signal.")
 h_norms_mcts = np.array(h_all)
-print(f'Samples analyzed: {len(h_norms_mcts)}')
-print(f'Mean normalized entropy: {h_norms_mcts.mean():.3f}')
-print(f'Median normalized entropy: {np.median(h_norms_mcts):.3f}')
-print(f'IQR: [{np.percentile(h_norms_mcts, 25):.3f}, {np.percentile(h_norms_mcts, 75):.3f}]')
-print(f'Min: {h_norms_mcts.min():.3f}, Max: {h_norms_mcts.max():.3f}')
+print(f"Samples analyzed: {len(h_norms_mcts)}")
+print(f"Mean normalized entropy: {h_norms_mcts.mean():.3f}")
+print(f"Median normalized entropy: {np.median(h_norms_mcts):.3f}")
+print(f"IQR: [{np.percentile(h_norms_mcts, 25):.3f}, {np.percentile(h_norms_mcts, 75):.3f}]")
+print(f"Min: {h_norms_mcts.min():.3f}, Max: {h_norms_mcts.max():.3f}")
 print()
-print('Distribution:')
+print("Distribution:")
 bins = [(0, 0.3), (0.3, 0.45), (0.45, 0.65), (0.65, 0.8), (0.8, 1.0)]
 for low, high in bins:
     count = np.sum((h_norms_mcts >= low) & (h_norms_mcts < high))
     pct = 100 * count / len(h_norms_mcts)
-    bar = '█' * int(pct / 5)
-    print(f'  {low:.2f}-{high:.2f}: {count:4d} ({pct:5.1f}%) {bar}')
+    bar = "█" * int(pct / 5)
+    print(f"  {low:.2f}-{high:.2f}: {count:4d} ({pct:5.1f}%) {bar}")
 
 print()
-print('=== DIAGNOSIS (pooled aggregate, kept for backward-compat) ===')
+print("=== DIAGNOSIS (pooled aggregate, kept for backward-compat) ===")
 median_entropy = np.median(h_norms_mcts)
 if median_entropy > 0.65:
-    print(f'⚠️  PROBLEM FOUND: MCTS target policies are too uniform!')
-    print(f'   Median normalized entropy: {median_entropy:.3f} (target: 0.45-0.65)')
-    print(f'   The model is correctly learning from uniform data.')
-    print(f'   Solution: Reduce exploration parameters in self-play config.')
+    print("⚠️  PROBLEM FOUND: MCTS target policies are too uniform!")
+    print(f"   Median normalized entropy: {median_entropy:.3f} (target: 0.45-0.65)")
+    print("   The model is correctly learning from uniform data.")
+    print("   Solution: Reduce exploration parameters in self-play config.")
 elif median_entropy < 0.45:
-    print(f'⚠️  MCTS target policies are too sharp (low entropy)')
-    print(f'   Median normalized entropy: {median_entropy:.3f} (target: 0.45-0.65)')
-    print(f'   Solution: Increase exploration parameters.')
+    print("⚠️  MCTS target policies are too sharp (low entropy)")
+    print(f"   Median normalized entropy: {median_entropy:.3f} (target: 0.45-0.65)")
+    print("   Solution: Increase exploration parameters.")
 else:
-    print(f'✅ MCTS target policies are in good range')
-    print(f'   Median normalized entropy: {median_entropy:.3f} (target: 0.45-0.65)')
-    print(f'   If model entropy is still high, training issue.')
+    print("✅ MCTS target policies are in good range")
+    print(f"   Median normalized entropy: {median_entropy:.3f} (target: 0.45-0.65)")
+    print("   If model entropy is still high, training issue.")
 
 print()
 if median_entropy > 0.65:
-    print('CONCLUSION: Training data is the problem!')
-    print('  - MCTS targets are too uniform (high entropy)')
-    print('  - Model correctly learns uniform policies (low KL)')
-    print('  - Need to regenerate self-play with reduced exploration')
+    print("CONCLUSION: Training data is the problem!")
+    print("  - MCTS targets are too uniform (high entropy)")
+    print("  - Model correctly learns uniform policies (low KL)")
+    print("  - Need to regenerate self-play with reduced exploration")
 else:
-    print('CONCLUSION: Training issue, not data issue')
-    print('  - MCTS targets are in good range')
-    print('  - Model should learn sharper policies')
-    print('  - May need training adjustments')
+    print("CONCLUSION: Training issue, not data issue")
+    print("  - MCTS targets are in good range")
+    print("  - Model should learn sharper policies")
+    print("  - May need training adjustments")

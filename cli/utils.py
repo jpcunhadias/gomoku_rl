@@ -1,4 +1,3 @@
-
 import argparse
 from types import SimpleNamespace
 
@@ -9,11 +8,12 @@ def get_config_and_override(description: str) -> SimpleNamespace:
     base_cfg = get_config()
 
     ap = argparse.ArgumentParser(description=description)
+    ap.add_argument("--cycle", type=int, required=True, help="Experiment cycle id (int)")
     ap.add_argument(
-        "--cycle", type=int, required=True, help="Experiment cycle id (int)"
-    )
-    ap.add_argument(
-        "--config", type=str, default=None, help="Name of the config file to use (e.g., 'phaseC_c1')"
+        "--config",
+        type=str,
+        default=None,
+        help="Name of the config file to use (e.g., 'phaseC_c1')",
     )
 
     # Dynamically add arguments for each parameter in the base config
@@ -21,7 +21,7 @@ def get_config_and_override(description: str) -> SimpleNamespace:
         if key in ["cycle", "config"]:
             continue
         arg_type = type(value)
-        if arg_type == bool:
+        if arg_type is bool:
             ap.add_argument(
                 f"--{key}",
                 action=argparse.BooleanOptionalAction,
@@ -77,7 +77,9 @@ def get_config_and_override(description: str) -> SimpleNamespace:
                     if cli_value is not None:
                         original_value = nested_dict[subkey]
                         if cli_value != original_value:
-                            print(f"[Config Override] {key}[{subkey}]: {original_value} -> {cli_value}")
+                            print(
+                                f"[Config Override] {key}[{subkey}]: {original_value} -> {cli_value}"
+                            )
                             nested_dict[subkey] = cli_value
                             modified = True
                             if key not in overrides:

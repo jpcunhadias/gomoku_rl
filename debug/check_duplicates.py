@@ -1,11 +1,15 @@
 import argparse
 import json
 from collections import Counter
+
 from utils.paths import cycle_paths
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cycle", type=int, required=True, help="Cycle number of the JSONL to analyze")
+    parser.add_argument(
+        "--cycle", type=int, required=True, help="Cycle number of the JSONL to analyze"
+    )
     args = parser.parse_args()
 
     paths = cycle_paths(args.cycle)
@@ -16,7 +20,7 @@ def main():
 
     hashes = []
     try:
-        with open(log_path, "r") as f:
+        with open(log_path) as f:
             for line in f:
                 try:
                     record = json.loads(line)
@@ -36,7 +40,7 @@ def main():
     unique_records = len(set(hashes))
     duplication_rate = 1 - (unique_records / total_records)
 
-    print(f"\n[Check] Duplication Rate")
+    print("\n[Check] Duplication Rate")
     print(f"  - Total records with hash: {total_records}")
     print(f"  - Unique hashes:           {unique_records}")
     print(f"  - Duplication rate:        {duplication_rate:.2%}")
@@ -46,6 +50,7 @@ def main():
     for h, count in Counter(hashes).most_common(5):
         if count > 1:
             print(f"  - Hash {h}: {count} times")
+
 
 if __name__ == "__main__":
     main()
