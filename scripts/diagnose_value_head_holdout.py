@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Value-head calibration diagnostic with a proper train/held-out split.
+Value- and policy-head calibration diagnostic with a proper train/held-out split.
 
-Every prior calibration check in this repo (debug/value_head_check.py) evaluates on samples
-drawn from the same buffer the model trained on -- that conflates "memorized this buffer" with
-"is actually calibrated." This script splits the Cycle 2 buffer 90/10, trains fresh copies of
-the model (from the same Cycle 1 starting checkpoint) with different optimizer configs on the
-90%, and reports Brier/ECE/pre-tanh-saturation on the untouched 10% for each — a genuine
-generalization comparison, not a training-set readout.
+Every prior calibration check in this repo (debug/value_head_check.py, debug/policy_head_check.py)
+evaluates on samples drawn from the same buffer the model trained on -- that conflates "memorized
+this buffer" with "is actually calibrated/generalizes." This script splits a buffer 90/10, trains
+fresh copies of the model (from a given starting checkpoint) with different optimizer configs on
+the 90%, and reports value calibration (Brier/ECE/pre-tanh-saturation) and policy generalization
+(KL to held-out targets, normalized entropy, top-1 agreement) on the untouched 10% for each -- a
+genuine generalization comparison, not a training-set readout.
 
 Usage:
   uv run python scripts/diagnose_value_head_holdout.py \
@@ -128,10 +129,48 @@ def scalar_ece(v_hat: np.ndarray, z: np.ndarray, num_bins: int = 10) -> float:
     return total
 
 
+def policy_metrics_on_holdout(logits: torch.Tensor, target_policies: torch.Tensor) -> dict:
+    """KL(net||target), normalized entropy of net's own distribution, and top-1 agreement,
+    all restricted to legal moves (target_policies > 0, matching debug/policy_head_check.py's
+    convention) -- mirrors that script's metrics, but on genuinely held-out data."""
+    probs = F.softmax(logits, dim=1).detach().cpu().numpy()
+    targets = target_policies.detach().cpu().numpy()
+    eps = 1e-12
+
+    kls, entropies, top1_matches = [], [], []
+    for b in range(probs.shape[0]):
+        legal_mask = targets[b] > eps
+        m = int(legal_mask.sum())
+        if m == 0:
+            continue
+        p_net = probs[b][legal_mask]
+        p_net = p_net / max(p_net.sum(), eps)
+        p_tgt = targets[b][legal_mask]
+        p_tgt = p_tgt / max(p_tgt.sum(), eps)
+
+        log_ratio = np.log(np.clip(p_tgt, eps, 1)) - np.log(np.clip(p_net, eps, 1))
+        kls.append(float(np.sum(p_tgt * log_ratio)))
+
+        if m > 1:
+            h = float(-(np.clip(p_net, eps, 1) * np.log(np.clip(p_net, eps, 1))).sum())
+            entropies.append(h / np.log(m))
+
+        top1_matches.append(int(np.argmax(p_net) == np.argmax(p_tgt)))
+
+    return {
+        "kl_mean": float(np.mean(kls)) if kls else float("nan"),
+        "kl_median": float(np.median(kls)) if kls else float("nan"),
+        "entropy_median": float(np.median(entropies)) if entropies else float("nan"),
+        "top1_agreement": float(np.mean(top1_matches)) if top1_matches else float("nan"),
+    }
+
+
 def evaluate_on_holdout(model, device, holdout):
     model.eval()
-    states, _, values = zip(*holdout, strict=True)
+    states, target_policies, values = zip(*holdout, strict=True)
     states = torch.stack(states).to(device)
+    target_policies_stacked = torch.stack(target_policies).to(torch.float32).to(device)
+    target_policies_stacked = target_policies_stacked.view(-1, model.policy_fc.out_features)
     z = np.array(values, dtype=np.float32)
 
     pre = {}
@@ -141,17 +180,19 @@ def evaluate_on_holdout(model, device, holdout):
 
     handle = model.value_fc.register_forward_hook(hook)
     with torch.no_grad():
-        _, value_pred = model(states)
+        logits, value_pred = model(states)
     handle.remove()
 
     v_hat = value_pred.view(-1).detach().cpu().numpy()
     sat_share = float(np.mean(np.abs(pre["v"]) > 2.0))
-    return {
+    stats = {
         "n": len(holdout),
         "brier": brier_score(v_hat, z),
         "ece": scalar_ece(v_hat, z),
         "saturation": sat_share,
     }
+    stats.update(policy_metrics_on_holdout(logits, target_policies_stacked))
+    return stats
 
 
 def main():
@@ -218,18 +259,23 @@ def main():
         results.append((name, stats))
 
     print(f"\n=== SUMMARY (held-out set, n={len(holdout)}) ===")
-    print(f"{'config':45s}  {'brier':>8s}  {'ece':>8s}  {'sat%':>6s}")
+    header = (
+        f"{'config':45s}  {'brier':>8s}  {'ece':>8s}  {'sat%':>6s}  "
+        f"{'pKL':>7s}  {'pEntropy':>8s}  {'top1':>6s}"
+    )
+    print(header)
+
+    def _row(label: str, stats: dict) -> str:
+        return (
+            f"{label:45s}  {stats['brier']:8.4f}  {stats['ece']:8.4f}  "
+            f"{stats['saturation'] * 100:5.1f}%  {stats['kl_median']:7.4f}  "
+            f"{stats['entropy_median']:8.4f}  {stats['top1_agreement'] * 100:5.1f}%"
+        )
+
     if base_stats is not None:
-        print(
-            f"{'Starting checkpoint (no training)':45s}  "
-            f"{base_stats['brier']:8.4f}  {base_stats['ece']:8.4f}  "
-            f"{base_stats['saturation'] * 100:5.1f}%"
-        )
+        print(_row("Starting checkpoint (no training)", base_stats))
     for name, stats in results:
-        print(
-            f"{name:45s}  {stats['brier']:8.4f}  {stats['ece']:8.4f}  "
-            f"{stats['saturation'] * 100:5.1f}%"
-        )
+        print(_row(name, stats))
 
 
 if __name__ == "__main__":
