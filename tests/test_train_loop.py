@@ -47,6 +47,10 @@ def test_train_loop_runs_without_error(tmp_path):
         replay_buffer=buffer,
         config=config,
         device="cpu",
+        save_paths={
+            "model_best": tmp_path / "best.pth",
+            "model_last": tmp_path / "last.pth",
+        },
     )
     best_epoch, best_value_loss = trainer.train()
 
@@ -91,8 +95,12 @@ def test_train_loop_updates_weights(tmp_path):
         replay_buffer=buffer,
         config=config,
         device="cpu",
+        save_paths={
+            "model_best": tmp_path / "best.pth",
+            "model_last": tmp_path / "last.pth",
+        },
     )
-    
+
     trainer.train()
 
     # Check that at least some weights changed
@@ -155,10 +163,14 @@ def test_train_loop_loss_decreases(tmp_path):
         replay_buffer=buffer,
         config=config,
         device="cpu",
+        save_paths={
+            "model_best": tmp_path / "best.pth",
+            "model_last": tmp_path / "last.pth",
+        },
     )
-    
+
     trainer.train()
-    
+
     # Compute final loss
     model.eval()
     with torch.no_grad():
@@ -251,8 +263,12 @@ def test_train_loop_with_small_buffer(tmp_path):
         replay_buffer=buffer,
         config=config,
         device="cpu",
+        save_paths={
+            "model_best": tmp_path / "best.pth",
+            "model_last": tmp_path / "last.pth",
+        },
     )
-    
+
     # Should complete without error even with small buffer
     best_epoch, best_value_loss = trainer.train()
     assert best_epoch is not None

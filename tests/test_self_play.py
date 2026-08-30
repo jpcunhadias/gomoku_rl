@@ -12,7 +12,7 @@ from train.self_play import SelfPlayRunner
 config = get_config()
 
 
-def test_self_play_game_populates_buffer():
+def test_self_play_game_populates_buffer(tmp_path):
     model = PolicyValueNet(board_size=8)
     model._init_weights()
     evaluator = NeuralEvaluator(model)
@@ -32,6 +32,7 @@ def test_self_play_game_populates_buffer():
         buffer=buffer,
         verbose=False,
         config=config,
+        logger_path=str(tmp_path / "selfplay_test.jsonl"),
     )
 
     runner.play_game()
@@ -45,7 +46,7 @@ def test_self_play_game_populates_buffer():
     assert values[0].item() in [-1, 0, 1]
 
 
-def test_self_play_generates_valid_data():
+def test_self_play_generates_valid_data(tmp_path):
     """Test that self-play generates valid training samples."""
     model = PolicyValueNet(board_size=8, num_blocks=3)
     model._init_weights()
@@ -67,6 +68,7 @@ def test_self_play_generates_valid_data():
         buffer=buffer,
         verbose=False,
         config=config,
+        logger_path=str(tmp_path / "selfplay_test.jsonl"),
     )
 
     # Play a few games
@@ -97,7 +99,7 @@ def test_self_play_generates_valid_data():
         assert value.item() in [-1.0, 0.0, 1.0]
 
 
-def test_self_play_temperature_effect():
+def test_self_play_temperature_effect(tmp_path):
     """Test that temperature affects move selection."""
     model = PolicyValueNet(board_size=8, num_blocks=3)
     model._init_weights()
@@ -119,6 +121,7 @@ def test_self_play_temperature_effect():
         buffer=buffer_low_temp,
         verbose=False,
         config=config,
+        logger_path=str(tmp_path / "selfplay_test_low.jsonl"),
     )
 
     # High temperature (more exploration)
@@ -137,6 +140,7 @@ def test_self_play_temperature_effect():
         buffer=buffer_high_temp,
         verbose=False,
         config=config,
+        logger_path=str(tmp_path / "selfplay_test_high.jsonl"),
     )
 
     runner_low.play_game()
@@ -166,7 +170,7 @@ def test_self_play_temperature_effect():
     assert avg_entropy_high >= 0
 
 
-def test_self_play_game_terminates():
+def test_self_play_game_terminates(tmp_path):
     """Test that self-play games terminate properly."""
     model = PolicyValueNet(board_size=8, num_blocks=3)
     model._init_weights()
@@ -188,6 +192,7 @@ def test_self_play_game_terminates():
         buffer=buffer,
         verbose=False,
         config=config,
+        logger_path=str(tmp_path / "selfplay_test.jsonl"),
     )
 
     # Should complete without hanging
