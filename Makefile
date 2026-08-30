@@ -89,6 +89,7 @@ arena:
 	  --baseline $(BASELINE_MODEL) \
 	  --candidate $(CANDIDATE_MODEL) \
 	  --games 200 --sims 800 --seed 42 \
+	  --stochastic_eval \
 	  --out checkpoints/arena/arena_c$(CANDIDATE_CYCLE)_vs_c$(BASELINE_CYCLE).json \
 	  --cycle $(CANDIDATE_CYCLE) \
 	  $(ARGS)
