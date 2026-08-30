@@ -8,7 +8,7 @@ def get_config() -> SimpleNamespace:
     """
     return SimpleNamespace(
         seed=12345,
-        cycle=33,
+        cycle=44,
         num_self_play_games=100,
         self_play_num_simulations=800,
         reload_buffer_every=250,

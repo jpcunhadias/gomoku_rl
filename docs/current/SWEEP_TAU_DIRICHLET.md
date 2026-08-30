@@ -12,9 +12,17 @@ rather than rerun — 4 new runs total, not 6-8.
 |---|---|---|---|---|
 | 2 (reused) | both | 1.0x | {0:0.78, 1:0.46, 2:0.28} | 0.10 / 0.50 |
 | 31 | tau | 0.75x | {0:0.585, 1:0.345, 2:0.21} | 0.10 / 0.50 (fixed) |
-| 32 | tau | 1.25x | {0:0.975, 1:0.575, 2:0.35} | 0.10 / 0.50 (fixed) |
-| 33 | dirichlet | 0.75x | {0:0.78, 1:0.46, 2:0.28} (fixed) | 0.075 / 0.375 |
-| 34 | dirichlet | 1.25x | {0:0.78, 1:0.46, 2:0.28} (fixed) | 0.125 / 0.625 |
+| 42 | tau | 1.25x | {0:0.975, 1:0.575, 2:0.35} | 0.10 / 0.50 (fixed) |
+| 44 | dirichlet | 0.75x | {0:0.78, 1:0.46, 2:0.28} (fixed) | 0.075 / 0.375 |
+| 46 | dirichlet | 1.25x | {0:0.78, 1:0.46, 2:0.28} (fixed) | 0.125 / 0.625 |
+
+**Cycle numbers are deliberately non-adjacent** (31, 42, 44, 46 — not 31/32/33/34). Discovered the
+hard way: `cycle_paths(N-1)` is used as the self-play buffer-seeding fallback, so sequential
+numbers make sweep point N+1 silently inherit 25% of sweep point N's buffer as "the previous
+cycle" — exactly the dilution this design is trying to avoid. Point 32 (tau 1.25x) was launched,
+caught seeding from point 31's buffer within seconds, killed and cleaned up before it wasted
+compute, then relaunched as cycle 42. Keep future sweep cycle numbers non-adjacent to each other
+(and to any real cycle N-1) for this reason.
 
 Configs: `configs/sweep_tau_075.py`, `configs/sweep_tau_125.py`, `configs/sweep_dirichlet_075.py`,
 `configs/sweep_dirichlet_125.py`.
@@ -62,9 +70,9 @@ Fill in as each point completes.
 |---|---|---|---|---|---|---|
 | 2 (baseline) | 1.0x both | 0.590 | 0.548 | 0.138 | 40.0% | — (is the baseline) |
 | 31 | tau 0.75x | **0.045** (severe over-sharp collapse) | 0.124 | 0.046 | 84.9% | **0-50-50 (0% decisive win rate)** |
-| 32 | tau 1.25x | | | | | |
-| 33 | dirichlet 0.75x | | | | | |
-| 34 | dirichlet 1.25x | | | | | |
+| 42 | tau 1.25x | | | | | |
+| 44 | dirichlet 0.75x | | | | | |
+| 46 | dirichlet 1.25x | | | | | |
 
 ### Point 31 (tau 0.75x) — read
 
