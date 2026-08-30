@@ -228,7 +228,15 @@ def main():
     ap.add_argument(
         "--baseline_schedule",
         action="store_true",
-        help="If set, baseline also uses schedule (usually OFF).",
+        help="If set, baseline uses the c_puct schedule. Off by default.",
+    )
+    ap.add_argument(
+        "--candidate_schedule",
+        action="store_true",
+        help="If set, candidate uses the c_puct schedule. Off by default - both sides get "
+        "the same search-time configuration unless you deliberately ask for an asymmetric "
+        "test, so a win reflects the trained weights, not one side getting extra "
+        "exploration bonus during search that the other didn't.",
     )
     ap.add_argument(
         "--stochastic_eval",
@@ -286,7 +294,8 @@ def main():
         opening_rng.shuffle(openings)
         print(f"Shuffled openings using seed {args.seed}")
 
-    # Build four players: baseline (no schedule by default) and candidate (with schedule)
+    # Build four players: both sides get the same c_puct schedule setting by default
+    # (both off), so a win reflects the trained weights, not an asymmetric search-time bonus
     base_black = load_player(
         args.baseline,
         device,
@@ -315,8 +324,8 @@ def main():
         args.candidate,
         device,
         args.sims,
-        use_schedule=True,
-        schedule=schedule,
+        use_schedule=args.candidate_schedule,
+        schedule=schedule if args.candidate_schedule else None,
         stochastic=args.stochastic_eval,
         root_eps=args.eval_root_eps,
         tau0=args.eval_tau0,
@@ -327,8 +336,8 @@ def main():
         args.candidate,
         device,
         args.sims,
-        use_schedule=True,
-        schedule=schedule,
+        use_schedule=args.candidate_schedule,
+        schedule=schedule if args.candidate_schedule else None,
         stochastic=args.stochastic_eval,
         root_eps=args.eval_root_eps,
         tau0=args.eval_tau0,
@@ -409,7 +418,7 @@ def main():
         candidate=args.candidate,
         # Schedule flags
         baseline_schedule=args.baseline_schedule,
-        candidate_schedule=True,  # candidate always uses schedule
+        candidate_schedule=args.candidate_schedule,
         # Stochastic evaluation settings
         stochastic_eval=args.stochastic_eval,
         eval_root_eps=args.eval_root_eps if args.stochastic_eval else None,
@@ -526,7 +535,7 @@ def main():
         f"  Schedule (c0, λ, cmin): ({args.schedule_c0}, {args.schedule_lambda}, {args.schedule_cmin})"
     )
     print(f"  Baseline uses schedule: {args.baseline_schedule}")
-    print("  Candidate uses schedule: True (always)")
+    print(f"  Candidate uses schedule: {args.candidate_schedule}")
 
     if args.stochastic_eval:
         print("\n  Stochastic Evaluation: ENABLED")
