@@ -158,6 +158,13 @@ def main():
     ap.add_argument("--value_weight_decay", type=float, default=2e-4)
     ap.add_argument("--seed", type=int, default=12345)
     ap.add_argument("--split_seed", type=int, default=777)
+    ap.add_argument(
+        "--quick",
+        action="store_true",
+        help="Just the Adam/production config vs. held-out, no no-training baseline or "
+        "AdamW comparison. For routine pipeline use (make debug); the full comparison "
+        "mode is for one-off investigations.",
+    )
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -170,17 +177,18 @@ def main():
     init_ckpt = torch.load(args.init_checkpoint, map_location=device)
     init_state_dict = init_ckpt["model_state_dict"]
 
-    # Baseline: measure the starting checkpoint's own held-out calibration (before any
-    # Cycle-2-style training at all), for reference.
-    base_model = PolicyValueNet(board_size=8).to(device)
-    base_model.load_state_dict(init_state_dict)
-    base_stats = evaluate_on_holdout(base_model, device, holdout)
-    print(f"\n[Cycle 1 checkpoint, no further training] {base_stats}")
+    base_stats = None
+    if not args.quick:
+        # Baseline: measure the starting checkpoint's own held-out calibration (before
+        # any further training at all), for reference.
+        base_model = PolicyValueNet(board_size=8).to(device)
+        base_model.load_state_dict(init_state_dict)
+        base_stats = evaluate_on_holdout(base_model, device, holdout)
+        print(f"\n[Starting checkpoint, no further training] {base_stats}")
 
-    configs = [
-        ("Adam (matches original Cycle 2 training)", False),
-        ("AdamW (decoupled weight decay)", True),
-    ]
+    configs = [("Adam (matches production training)", False)]
+    if not args.quick:
+        configs.append(("AdamW (decoupled weight decay)", True))
 
     results = []
     for name, use_adamw in configs:
@@ -196,9 +204,10 @@ def main():
 
     print("\n=== SUMMARY (held-out set, n={}) ===".format(len(holdout)))
     print(f"{'config':45s}  {'brier':>8s}  {'ece':>8s}  {'sat%':>6s}")
-    print(f"{'Cycle 1 checkpoint (no training)':45s}  "
-          f"{base_stats['brier']:8.4f}  {base_stats['ece']:8.4f}  "
-          f"{base_stats['saturation']*100:5.1f}%")
+    if base_stats is not None:
+        print(f"{'Starting checkpoint (no training)':45s}  "
+              f"{base_stats['brier']:8.4f}  {base_stats['ece']:8.4f}  "
+              f"{base_stats['saturation']*100:5.1f}%")
     for name, stats in results:
         print(f"{name:45s}  {stats['brier']:8.4f}  {stats['ece']:8.4f}  "
               f"{stats['saturation']*100:5.1f}%")

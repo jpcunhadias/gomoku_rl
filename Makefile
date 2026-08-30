@@ -25,6 +25,13 @@ BASELINE_MODEL := checkpoints/models/c1_cycle$(BASELINE_CYCLE)_best.pth
 CYCLE_BUFFER := checkpoints/buffers/replay_c1_cycle$(CYCLE).pkl
 CYCLE_MODEL_LAST := checkpoints/models/c1_cycle$(CYCLE)_last.pth
 
+# Previous cycle's model - the starting checkpoint this cycle trained from, needed by
+# the held-out calibration check (it retrains fresh copies, so it needs the pre-training
+# starting point, not this cycle's own already-trained model). No previous cycle for
+# CYCLE=1 (starts from scratch); the debug target skips the check gracefully in that case.
+PREV_CYCLE := $(shell expr $(CYCLE) - 1)
+PREV_MODEL_LAST := checkpoints/models/c1_cycle$(PREV_CYCLE)_last.pth
+
 # Pass-through arguments for training overrides
 # Example: make train CYCLE=2 ARGS="--learning_rate 0.0005"
 ARGS ?=
@@ -82,6 +89,14 @@ debug:
 	uv run python debug/training_smoke_check.py \
 	  --checkpoint $(CYCLE_MODEL_LAST) \
 	  --buffer $(CYCLE_BUFFER)
+	@if [ -f "$(PREV_MODEL_LAST)" ]; then \
+	  echo "=== held-out calibration check ==="; \
+	  uv run python scripts/diagnose_value_head_holdout.py --quick \
+	    --buffer $(CYCLE_BUFFER) \
+	    --init_checkpoint $(PREV_MODEL_LAST); \
+	else \
+	  echo "[debug] Skipping held-out calibration check: no previous-cycle checkpoint at $(PREV_MODEL_LAST)"; \
+	fi
 
 arena:
 	@echo "Comparing CANDIDATE=$(CANDIDATE_MODEL) vs BASELINE=$(BASELINE_MODEL)"
