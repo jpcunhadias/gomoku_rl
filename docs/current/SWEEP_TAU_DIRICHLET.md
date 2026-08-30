@@ -122,17 +122,29 @@ Fill in / correct as each point (re)completes with the fixed methodology.
 |---|---|---|---|---|---|---|---|
 | 2 (production, contaminated buffer) | 1.0x both | 0.508 | 0.979 | 0.956 | 0.548 | 0.138 | — (is the baseline) |
 | 50 (clean 1.0x re-measure) | 1.0x both | pending | pending | pending | pending | pending | pending |
-| 31 | tau 0.75x | 0.381 | 0.008 | 0.000 | 0.124 | 0.046 | **rerunning** (old: 0-50-50, predates arena fix) |
-| 42 | tau 1.25x | 0.570 | 0.096 | 0.008 | 0.144 | 0.036 | **rerunning** (old: 50-0-50, predates arena fix, also had a bizarre inverted color pattern — worth seeing if that survives a real independent-trials test) |
+| 31 | tau 0.75x | 0.381 | 0.008 | 0.000 | 0.124 | 0.046 | **0-49-51, decisive winrate 0.0%** (confirmed under real independent trials; predecessor deterministic run was 0-50-50) |
+| 42 | tau 1.25x | 0.570 | 0.096 | 0.008 | 0.144 | 0.036 | **43-0-57, decisive winrate 100%** (confirmed; predecessor deterministic run was 50-0-50, same mirrored color pattern — candidate wins only as White, never loses as Black — persists under real trials, so it's real, not a determinism artifact) |
 | 44 | dirichlet 0.75x | | | | | | |
 | 46 | dirichlet 1.25x | | | | | | |
 
-### Point 31 (tau 0.75x) — read, still holds
+### Points 31 and 42 — confirmed under real independent trials
 
-Ply 0 is unambiguous: 0.381, clearly below v4's 0.508, in the direction theory predicts for less
-exploration. Calibration metrics *look better* than Cycle 2's (lower Brier, lower ECE) despite
-this — the likely story (still needs the rerun arena result to confirm the strength conclusion,
-since the original 0-50-50 predates the determinism fix): narrower exploration means self-play
-visited a much narrower slice of the game tree with high confidence, so the model learned to
-predict outcomes very accurately *for that narrow, homogeneous set of positions*, which may not
-transfer to strength against a genuinely different opponent. Held pending the arena rerun.
+Both arena reruns landed with genuinely varying results (43-57 / 49-51 splits, not the old
+deterministic 50-50), confirming the games really are independent now, and both strength
+conclusions hold: **tau x0.75 (point 31) is robustly weaker** (0% decisive win rate), **tau x1.25
+(point 42) is robustly stronger** (100% decisive win rate) than Cycle 2. Point 42's mirrored color
+pattern (wins only as White, never loses as Black) also persists under real trials, so it's a real
+effect, not a determinism artifact — no mechanistic explanation for it yet.
+
+Point 31's story: ply 0 entropy (0.381) is clearly below v4's contaminated-buffer reading (0.508),
+in the direction theory predicts for less exploration; narrower exploration means self-play
+visited a much narrower slice of the game tree with high confidence, producing a model that
+predicts outcomes very accurately *for that narrow, homogeneous set of positions* (better Brier/
+ECE than Cycle 2) without that transferring to strength against a genuinely different opponent.
+
+Point 42's ply 0 entropy (0.570) is *above* v4's reading, in the other direction. Both 31 and 42
+collapsed similarly at plies 1-2, yet one is weaker and the other stronger — so ply-1/2 collapse
+alone doesn't explain strength; ply 0 is the one axis that tracks the strength result cleanly.
+**Held loosely until Cycle 50 lands**, since "v4's ply-0 entropy" is still the contaminated 0.508
+reading, and it's not yet confirmed whether the Cycle-1 contamination affected ply 0 as much as it
+clearly affected plies 1-2 (see issue #3 above).
