@@ -12,55 +12,84 @@ after a break — read this file first.
 
 ## Status as of this writing
 
-**Layer 1 (Cycle 1 → Cycle 2) is done.** Two real training generations exist: Cycle 1 (cold-start,
-trained on schedule bugs found and fixed) and Cycle 2 (v4 exploration config, validated). See
-`archive/CYCLE1_COLDSTART_MECHANISM.md` and `archive/CYCLE2_V4_VALIDATION_AND_ARENA.md`.
-**Caveat**: the headline Cycle 1 vs 2 arena result in that doc predates the arena-determinism fix
-below — a rerun is in progress (see "In progress" below); treat the exact numbers there as
-directionally right but not yet reconfirmed.
+**Read this part first: every arena result in the project to date is provisional.**
+`scripts/arena.py` used to hard-code the candidate to always get a c_puct search-time
+exploration bonus that the baseline never got (up to eff. c_puct 4.0 vs. a flat 1.5),
+regardless of which model was actually being tested — and the model under test was always
+passed as candidate, in every comparison this project has ever run. That means every
+"decisive win" recorded so far (Cycle 2 over Cycle 1, every sweep point over Cycle 2, the
+tau-axis's 100-0-0 results) could be partly or wholly a search-time artifact rather than
+genuine trained-model strength. **Fixed** — `--candidate_schedule` now exists alongside
+`--baseline_schedule`, both default to `False`, so `make arena` is fair by default — but
+nothing has been rerun under the fix yet. Treat every arena number dated before this fix as
+directionally suggestive, not confirmed. A background sweep run in progress when this was
+found was deliberately stopped mid-run rather than let it keep spending compute on the
+confounded setup.
+
+**Layer 1 (Cycle 1 → Cycle 2) is done, modulo the caveat above.** Two real training
+generations exist: Cycle 1 (cold-start, trained on schedule bugs found and fixed) and Cycle 2
+(v4 exploration config). See `archive/CYCLE1_COLDSTART_MECHANISM.md` and
+`archive/CYCLE2_V4_VALIDATION_AND_ARENA.md` — both good for the mechanism findings, not yet
+reconfirmed for the exact arena numbers.
 
 **The value-head "overconfidence" scare is closed, and it was a false alarm.** Every calibration
 check up to that point compared a model against *its own* training buffer — never a fair test.
 `scripts/diagnose_value_head_holdout.py` (a real held-out split, first one in the project) showed
 training actually *improves* held-out calibration. See `archive/VALUE_HEAD_CALIBRATION_INVESTIGATION.md`.
+This check now also covers the **policy** head (KL to held-out targets, normalized entropy,
+top-1 agreement) — it used to be value-only, an asymmetry in scrutiny that's now fixed too.
 
-**Three real methodology bugs were found and fixed**, all of which quietly affected results
-before being caught:
-1. Arena was fully deterministic (no `--stochastic_eval`, no opening variety) — every arena
-   result in the project was really 2 unique games replayed N times, not N independent trials.
-   Fixed: `make arena` now runs real independent games by default.
-2. The entropy check pooled all plies into one misleading number, and separately, Cycle 2's own
-   buffer turned out to be a poor comparison baseline (25% of it was inherited cold-start data
-   from Cycle 1, quietly skewing its own ply 1/2 entropy readings).
-3. Three pipeline soundness gaps: the test suite was writing real files into `checkpoints/`
-   (tests thought a config field sandboxed them; it wasn't read); "best checkpoint" was selected
-   by training-set loss, which structurally can't detect overfitting; and the held-out calibration
-   check existed only as a script you had to remember to run, not part of `make debug`. All three
-   fixed — see the `docs/CHANGELOG.md` entries around the sweep.
+**Methodology bugs found and fixed, in the order discovered** (full story:
+`current/SWEEP_TAU_DIRICHLET.md`):
+1. Sequential sweep cycle numbers collided with the buffer-seeding fallback (fixed with
+   non-adjacent cycle ids).
+2. Arena was fully deterministic (no `--stochastic_eval`, no opening variety) — every arena
+   result was really 2 unique games replayed N times, not N independent trials. Fixed.
+3. The entropy check pooled all plies into one misleading number, and Cycle 2's own buffer
+   turned out to be a poor comparison baseline (25% inherited cold-start data from Cycle 1,
+   quietly skewing its own ply 1/2 entropy readings). Fixed with a per-ply breakdown and a
+   clean re-measured baseline.
+4. Three pipeline soundness gaps: the test suite was writing real files into `checkpoints/`
+   (a config field was believed to sandbox them; it was never read); "best checkpoint" was
+   selected by training-set loss, which structurally can't detect overfitting; the held-out
+   calibration check existed only as a script you had to remember to run. All three fixed.
+5. **The arena schedule asymmetry described above** — found during a deliberate audit
+   ("are we actually ready to trust these results"), not during normal development. Fixed.
 
-Full story, including how each was found: `current/SWEEP_TAU_DIRICHLET.md`.
+**A deliberate soundness audit also verified two things that turned out fine, and closed a
+test-coverage gap**:
+- `train/augmentation.py`'s 6 symmetry transforms are correct — a dedicated test confirms
+  state and policy stay aligned under every transform, and that all 6 are genuinely distinct
+  (see `tests/test_augmentation.py`). This had never been tested before.
+- A tautological self-play test (asserted `entropy >= 0`, true of any policy) was replaced
+  with deterministic tests of the actual temperature→entropy mechanism
+  (`tests/test_mcts_extended.py`), plus a regression test for the MCTS divide-by-zero fix
+  below.
 
-**The tau/dirichlet_epsilon sweep (Layer 2) is in progress.** The tau axis is done and conclusive:
-4 points (0.75x, 1.0x-clean, 1.25x, 1.5x), each stronger setting beating the previous one
-decisively (two of them 100-0-0, every game). The dirichlet axis (0.75x, 1.25x) and a rerun of
-the original Cycle 1 vs 2 headline arena (with the determinism fix) were both **still running
-in the background as of this writing** — check `current/SWEEP_TAU_DIRICHLET.md` for the design
-and whatever results have landed, and the server's `logs/dirichlet_and_headline_rerun.log` for
-live progress if you have access.
+**The tau/dirichlet_epsilon sweep (Layer 2) is paused, pending a rerun under the arena fix.**
+The tau axis produced a very clean-looking result (4 points, each beating the previous
+decisively) — worth reconfirming now that the schedule confound is fixed, not assuming it
+survives unchanged. The dirichlet axis has one point done (44, dirichlet 0.75x — also
+confounded, not yet rerun) and one not started (46). The Cycle 1 vs 2 headline arena rerun
+never got to run before the job was stopped.
 
-**Code quality**: a full pass closed ~250 lint findings (most were mechanical — type-hint
-modernization, import sorting) and fixed two real bugs found along the way: a divide-by-zero in
-MCTS's visit-count normalization (silent NaN probabilities if every root child ended up with 0
-visits) and a scattering of `zip()` calls without `strict=`, each verified safe to make strict
-(all pairs are genuinely equal-length by construction — this was a real invariant check, not
+**Code quality**: a full pass closed ~250 lint findings (most mechanical) and fixed a real
+divide-by-zero in MCTS's visit-count normalization (silent NaN probabilities if every root
+child ended up with 0 visits — now has a dedicated regression test) and a scattering of
+`zip()` calls without `strict=` (verified safe to make strict — genuine invariant checks, not
 just satisfying the linter). Remaining, left as documented debt: line-length and a handful of
 `sys.path`-before-import lines in standalone debug scripts (a deliberate pattern, not a bug).
 
 **Still open / not started**:
+- Rerunning the sweep (and the Cycle 1 vs 2 headline arena) under the fixed, symmetric arena
+  — the natural next step, not yet done.
 - DVC/MLflow backup wiring — the server's disk is still the only copy of everything. Parked
   since early in the project; worth revisiting given how much has been generated since.
-- The XAI layer (captum/shap) — planned next step once the above settles, not yet begun.
-- Consolidating the sweep results into `CHANGELOG.md`/`archive/` once the background run finishes.
+- The XAI layer (captum/shap) — planned next step once arena results are trustworthy again.
+- Whether the sweep's conclusions hold at full compute (200 games/800 sims, not the reduced
+  100/400 used for speed) — untested either way.
+- Why discounting value targets made calibration worse during the value-head investigation —
+  found, reverted, never actually explained.
 
 ## Workflow
 

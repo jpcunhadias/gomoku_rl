@@ -164,8 +164,14 @@ Full writeup: `docs/archive/CYCLE2_V4_VALIDATION_AND_ARENA.md`.
    held-out test (training on Cycle 2 improved Brier 0.816→0.548 and ECE 0.178→0.138 on genuinely
    unseen positions; the original cross-buffer comparison that flagged this was methodologically
    flawed). See `docs/archive/VALUE_HEAD_CALIBRATION_INVESTIGATION.md`.
-2. **The small parameter sweep** (tau, dirichlet_epsilon; 3-4 settings each, c_puct fixed) —
-   unblocked, with a validated Cycle 1→2 baseline pair to compare against.
+2. ~~The small parameter sweep~~ **Run, but every result predates a real arena confound found
+   during a later soundness audit** — `scripts/arena.py` hard-coded the candidate to always get
+   a search-time c_puct bonus the baseline never got, and the model under test was always the
+   candidate. Fixed (`--candidate_schedule` now defaults to `False`, matching `--baseline_schedule`),
+   but nothing has been rerun under the fix yet. **Rerunning the sweep under the fix is the
+   actual next step**, not starting something new — see `docs/current/SWEEP_TAU_DIRICHLET.md`.
 3. **DVC/MLflow backup wiring** — still parked; revisit once the sweep starts producing multiple
    comparable runs worth not losing.
+4. **The XAI layer** — waiting on arena results being trustworthy again before building
+   explainability tooling on top of "which model is actually stronger."
 

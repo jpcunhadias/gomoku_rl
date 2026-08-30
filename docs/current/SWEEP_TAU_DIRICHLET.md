@@ -1,8 +1,37 @@
 # Sweep: tau and dirichlet_epsilon around Cycle 2's v4 config
 
-**Status**: In progress. Turned out to be as much a methodology audit as a parameter sweep —
-three real issues in existing tooling were found and fixed while running it. See "Issues found
-and fixed" below before trusting any single number in the results table in isolation.
+**Status**: Paused, pending a rerun under a just-fixed arena confound (issue #4 below). Turned
+out to be as much a methodology audit as a parameter sweep — four real issues in existing
+tooling were found and fixed while running it. See "Issues found and fixed" below before
+trusting any single number in the results table in isolation, especially the arena win/loss
+columns — **all of them predate the fix in issue #4 and need to be treated as provisional.**
+
+## Issue #4 (found after the results below were recorded): arena's schedule asymmetry
+
+`scripts/arena.py` hard-coded `use_schedule=True` for the candidate and `False` for the
+baseline (unless `--baseline_schedule`), so the candidate always got a c_puct search-time
+exploration bonus (eff. c_puct up to 4.0 vs. a flat 1.5) that the baseline never did —
+regardless of which model was actually being tested. The model under test was always passed
+as candidate in every comparison below. Found during a deliberate soundness audit, not during
+normal development — worth remembering that "does this look done" is a different question
+from "is this actually sound," and worth asking explicitly before moving on to something new.
+
+**Fixed**: `--candidate_schedule` now exists alongside `--baseline_schedule`, both default to
+`False` — a fair, symmetric comparison unless deliberately overridden. See
+`tests/test_arena.py` for the regression test (against `load_player` directly, not a
+reimplementation of the CLI parsing).
+
+**Implication**: every arena result in this doc (and everywhere else in the project) was run
+under the old asymmetric setup. The background job running point 46 (dirichlet 1.25x) plus a
+rerun of the Cycle 1 vs 2 headline arena was stopped mid-point-46 rather than let it keep
+spending compute on the confounded setup. Point 44 (dirichlet 0.75x) did finish its full
+pipeline before the stop, including an arena result — also confounded, listed below for the
+record but not to be trusted as-is.
+
+**Not yet decided**: whether/when to rerun the tau axis, point 44, point 46, and the headline
+arena under the fix. The tau axis's result was the cleanest and most surprising (a monotonic,
+escalating "every stronger setting wins every game" pattern) - which is also exactly the kind
+of result worth being most suspicious of until it's reconfirmed cleanly.
 
 ## Design
 
@@ -129,8 +158,8 @@ Cycle 2's buffer is contaminated (see issue #3 above) and isn't a fair compariso
 | 31 | tau 0.75x | 0.381 | 0.008 | 0.000 | 0.124 | 0.046 | **0-49-51, decisive winrate 0.0%** (confirmed under real independent trials; predecessor deterministic run was 0-50-50) |
 | 42 | tau 1.25x | 0.570 | 0.096 | 0.008 | 0.144 | 0.036 | **43-0-57, decisive winrate 100%** vs Cycle 2 (confirmed; predecessor deterministic run was 50-0-50, same mirrored color pattern — candidate wins only as White, never loses as Black — persists under real trials, so it's real, not a determinism artifact). **Direct test: beat 50 (clean baseline) 100-0-0, every game.** |
 | 61 | tau 1.5x | 0.664 | 0.201 | 0.021 | 0.182 | 0.072 | Not run vs Cycle 2. **Direct test: beat 42 100-0-0, every game.** Trend has not plateaued — 4/4 points so far, each stronger point beats the previous decisively. |
-| 44 | dirichlet 0.75x | pending | pending | pending | pending | pending | pending, vs Cycle 50 |
-| 46 | dirichlet 1.25x | pending | pending | pending | pending | pending | pending, vs Cycle 50 |
+| 44 | dirichlet 0.75x | 0.471 | 0.061 | 0.003 | 0.136 | 0.049 | **CONFOUNDED (predates issue #4 fix): 0-50-50 vs Cycle 50, not to be trusted as-is** |
+| 46 | dirichlet 1.25x | not started | | | | | job stopped before this point began |
 
 ### Points 31 and 42 — confirmed under real independent trials
 
