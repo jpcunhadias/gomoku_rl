@@ -1,6 +1,7 @@
 import os
+import random
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -39,7 +40,6 @@ class AlphaZeroTrainer:
     ) -> None:
         self.model = model.to(device)
         self.optimizer = optimizer
-        self.replay_buffer = replay_buffer
         self.config = config
         self.config_hash = config_hash # Store the hash
         self.device = device
@@ -55,6 +55,32 @@ class AlphaZeroTrainer:
         self.value_loss_fn = nn.SmoothL1Loss(beta=1.0)
         self.best_value_loss = best_value_loss
         self.best_epoch = 0
+
+        # Hold out a slice of the buffer for "best checkpoint" selection, instead of
+        # picking "best" by loss on the same data being trained on. Auto-skips for
+        # small buffers (tests, tiny buffers) where a split would leave too little to
+        # train or evaluate on meaningfully. Known limitation: if reload_buffer_every
+        # triggers mid-training, the freshly reloaded buffer isn't re-split - not
+        # exercised in practice since epochs never reach the (very high) default.
+        holdout_frac = getattr(config, "holdout_frac", 0.1)
+        self.holdout_samples: List[Tuple[torch.Tensor, torch.Tensor, float]] = []
+        min_buffer_for_holdout = max(200, self.batch_size * 4)
+        if holdout_frac > 0 and len(replay_buffer) >= min_buffer_for_holdout:
+            samples = list(replay_buffer.buffer)
+            random.Random(getattr(config, "seed", 0)).shuffle(samples)
+            n_holdout = int(len(samples) * holdout_frac)
+            self.holdout_samples = samples[:n_holdout]
+            train_samples = samples[n_holdout:]
+            train_buffer = ReplayBuffer(max_size=len(train_samples))
+            train_buffer.buffer = train_samples
+            self.replay_buffer = train_buffer
+            print(
+                f"[Trainer] Held out {len(self.holdout_samples)} samples "
+                f"({holdout_frac:.0%}) for best-checkpoint selection; "
+                f"training on the remaining {len(train_buffer)}."
+            )
+        else:
+            self.replay_buffer = replay_buffer
 
         self.reload_buffer_every = getattr(config, "reload_buffer_every", 500)
         self.eval_every = getattr(config, "eval_every", 5)
@@ -100,6 +126,31 @@ class AlphaZeroTrainer:
         total_loss = policy_loss * 1.0 + value_loss * 0.5
 
         return total_loss, policy_loss.item(), value_loss.item()
+
+    def evaluate_holdout_value_loss(self) -> Optional[float]:
+        """Value loss on the held-out split, if one was created. None otherwise."""
+        if not self.holdout_samples:
+            return None
+
+        was_training = self.model.training
+        self.model.eval()
+        total_loss = 0.0
+        n = len(self.holdout_samples)
+        chunk = 256
+        with torch.no_grad():
+            for i in range(0, n, chunk):
+                batch = self.holdout_samples[i : i + chunk]
+                states, _, target_values = zip(*batch)
+                states = torch.stack(states).to(self.device)
+                target_values = torch.tensor(
+                    target_values, dtype=torch.float32, device=self.device
+                )
+                _, value_pred = self.model(states)
+                loss = self.value_loss_fn(value_pred.view(-1), target_values)
+                total_loss += loss.item() * len(batch)
+        if was_training:
+            self.model.train()
+        return total_loss / n
 
     def train(self, debug: bool = False) -> Tuple[Optional[int], float]:
         self.model.train()
@@ -265,14 +316,22 @@ class AlphaZeroTrainer:
                     print(f"[Sampler] L1 gap (fractions): {l1_gap:.3f}\n")
 
             self.save_checkpoint(epoch=epoch, label="latest")
-            if avg_v_loss < self.best_value_loss:
-                self.best_value_loss = avg_v_loss
+
+            holdout_v_loss = self.evaluate_holdout_value_loss()
+            selection_loss = holdout_v_loss if holdout_v_loss is not None else avg_v_loss
+            if holdout_v_loss is not None:
+                print(f"  Held-out value loss: {holdout_v_loss:.4f}")
+                self.writer.add_scalar("Loss/Value_Holdout", holdout_v_loss, epoch)
+
+            if selection_loss < self.best_value_loss:
+                self.best_value_loss = selection_loss
                 self.best_epoch = epoch
                 self.save_checkpoint(
-                    epoch=epoch, label="best", best_value_loss=avg_v_loss
+                    epoch=epoch, label="best", best_value_loss=selection_loss
                 )
+                label = "held-out value loss" if holdout_v_loss is not None else "value loss"
                 print(
-                    f"Best model updated (value loss = {avg_v_loss:.4f}) → saved as best"
+                    f"Best model updated ({label} = {selection_loss:.4f}) → saved as best"
                 )
 
             self.writer.add_scalar("Loss/Policy", avg_p_loss, epoch)
