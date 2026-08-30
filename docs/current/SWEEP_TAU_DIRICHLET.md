@@ -121,7 +121,7 @@ Fill in / correct as each point (re)completes with the fixed methodology.
 | Cycle | Axis/scale | Ply0 entropy (median) | Ply1 | Ply2 | Held-out Brier | Held-out ECE | Arena vs Cycle 2 (W-L-D, decisive) |
 |---|---|---|---|---|---|---|---|
 | 2 (production, contaminated buffer) | 1.0x both | 0.508 | 0.979 | 0.956 | 0.548 | 0.138 | — (is the baseline) |
-| 50 (clean 1.0x re-measure) | 1.0x both | pending | pending | pending | pending | pending | pending |
+| 50 (clean 1.0x re-measure) | 1.0x both | 0.471 | 0.061 | 0.003 | 0.113 | 0.049 | **50-15-35, decisive winrate 77%** vs Cycle 2 — beats it despite ~half the training data (100 vs 200 games), see below |
 | 31 | tau 0.75x | 0.381 | 0.008 | 0.000 | 0.124 | 0.046 | **0-49-51, decisive winrate 0.0%** (confirmed under real independent trials; predecessor deterministic run was 0-50-50) |
 | 42 | tau 1.25x | 0.570 | 0.096 | 0.008 | 0.144 | 0.036 | **43-0-57, decisive winrate 100%** (confirmed; predecessor deterministic run was 50-0-50, same mirrored color pattern — candidate wins only as White, never loses as Black — persists under real trials, so it's real, not a determinism artifact) |
 | 44 | dirichlet 0.75x | | | | | | |
@@ -148,3 +148,27 @@ alone doesn't explain strength; ply 0 is the one axis that tracks the strength r
 **Held loosely until Cycle 50 lands**, since "v4's ply-0 entropy" is still the contaminated 0.508
 reading, and it's not yet confirmed whether the Cycle-1 contamination affected ply 0 as much as it
 clearly affected plies 1-2 (see issue #3 above).
+
+### Cycle 50 (clean v4 baseline) — resolves the ply-1/2 puzzle, opens a bigger one
+
+**Ply 1/2 collapse is confirmed real, not a contamination artifact**: Cycle 50's clean readings
+(0.061, 0.003) collapse just like both sweep points (31: 0.008, 0.000; 42: 0.096, 0.008). Cycle
+2's high ply-1/2 readings (0.979, 0.956) really were entirely the Cycle-1 buffer contamination —
+this was the original (correct) small-sample conclusion; the "correction" earlier in this doc's
+history was itself wrong, caused by comparing against a contaminated buffer. Ply 0 across all
+three clean points (31: 0.381, 50: 0.471, 42: 0.570) is monotonic in tau, exactly as expected.
+
+**Bigger finding**: Cycle 50 and Cycle 2 use the *identical* tau/dirichlet config (v4) — the only
+difference is buffer composition (50: 100 games, single-config, clean; 2: 200 games, 25% diluted
+with Cycle 1's cold-start data). Cycle 50 **beats** Cycle 2 (50-15-35, 77% decisive win rate)
+despite roughly half the training data. Mixing in lower-quality/different-context data hurt more
+than the extra volume helped — a real, evidenced data-quality-over-quantity result, and arguably
+the most interesting single finding of this sweep so far.
+
+**This also means 31 and 42's wins/losses against Cycle 2 don't cleanly isolate tau's effect** —
+Cycle 2 is now shown to be a weaker opponent than a clean v4 model, so comparing sweep points
+against it conflates tau's effect with the buffer-purity effect. A clean test of whether higher
+tau really does produce a stronger model needs sweep points compared **against each other**
+(e.g. 42 vs. 50, or 42 vs. 31), not each against Cycle 2. Not yet run — worth considering before
+concluding "higher tau (within this range) makes the model stronger" from the Cycle-2-relative
+results alone.
