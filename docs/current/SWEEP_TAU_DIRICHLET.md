@@ -169,6 +169,22 @@ the most interesting single finding of this sweep so far.
 Cycle 2 is now shown to be a weaker opponent than a clean v4 model, so comparing sweep points
 against it conflates tau's effect with the buffer-purity effect. A clean test of whether higher
 tau really does produce a stronger model needs sweep points compared **against each other**
-(e.g. 42 vs. 50, or 42 vs. 31), not each against Cycle 2. Not yet run — worth considering before
-concluding "higher tau (within this range) makes the model stronger" from the Cycle-2-relative
-results alone.
+(e.g. 42 vs. 50, or 42 vs. 31), not each against Cycle 2.
+
+### Direct test: 42 vs. 50 (both clean — isolates tau's effect properly)
+
+`make arena CANDIDATE_CYCLE=42 BASELINE_CYCLE=50 ARGS="--games 100 --sims 400"`, stochastic eval.
+
+**Result: 100 wins, 0 losses, 0 draws for Cycle 42 (tau x1.25) — every single game, split evenly
+50-50 by color, no draws at all.** The cleanest, most one-sided result in the whole sweep. With
+the buffer-purity confound removed (both points are equally clean, single-config buffers), tau
+x1.25 is unambiguously stronger than v4's own tau x1.0 in this range — not just "wins more," wins
+*every* game regardless of color.
+
+Combined with the rest: 31 (tau x0.75) lost to Cycle 2 (a weaker baseline); 50 (tau x1.0, clean)
+beat Cycle 2 decisively; 42 (tau x1.25) beat both Cycle 2 and 50 (the latter perfectly). The
+strength ordering **31 < 50 < 42** is now well-supported by direct and indirect evidence alike.
+**Tentative conclusion**: within the tested range (0.75x-1.25x of v4), more tau (more stochastic
+early-game exploration, specifically at ply 0, since plies 1-2 collapse regardless — see above)
+produces a measurably stronger model. Not yet tested: whether this keeps improving beyond 1.25x,
+or whether 1.25x is near a ceiling — would need another point further out (e.g. 1.5x) to know.
