@@ -118,15 +118,19 @@ for that.
 
 Fill in / correct as each point (re)completes with the fixed methodology.
 
-| Cycle | Axis/scale | Ply0 entropy (median) | Ply1 | Ply2 | Held-out Brier | Held-out ECE | Arena vs Cycle 2 (W-L-D, decisive) |
+**Note on the dirichlet axis (44, 46)**: arena'd against Cycle 50 (clean v4 baseline) rather than
+Cycle 2, applying the lesson from the tau axis up front instead of needing a correction pass —
+Cycle 2's buffer is contaminated (see issue #3 above) and isn't a fair comparison point.
+
+| Cycle | Axis/scale | Ply0 entropy (median) | Ply1 | Ply2 | Held-out Brier | Held-out ECE | Arena result |
 |---|---|---|---|---|---|---|---|
 | 2 (production, contaminated buffer) | 1.0x both | 0.508 | 0.979 | 0.956 | 0.548 | 0.138 | — (is the baseline) |
 | 50 (clean 1.0x re-measure) | 1.0x both | 0.471 | 0.061 | 0.003 | 0.113 | 0.049 | **50-15-35, decisive winrate 77%** vs Cycle 2 — beats it despite ~half the training data (100 vs 200 games), see below |
 | 31 | tau 0.75x | 0.381 | 0.008 | 0.000 | 0.124 | 0.046 | **0-49-51, decisive winrate 0.0%** (confirmed under real independent trials; predecessor deterministic run was 0-50-50) |
 | 42 | tau 1.25x | 0.570 | 0.096 | 0.008 | 0.144 | 0.036 | **43-0-57, decisive winrate 100%** vs Cycle 2 (confirmed; predecessor deterministic run was 50-0-50, same mirrored color pattern — candidate wins only as White, never loses as Black — persists under real trials, so it's real, not a determinism artifact). **Direct test: beat 50 (clean baseline) 100-0-0, every game.** |
 | 61 | tau 1.5x | 0.664 | 0.201 | 0.021 | 0.182 | 0.072 | Not run vs Cycle 2. **Direct test: beat 42 100-0-0, every game.** Trend has not plateaued — 4/4 points so far, each stronger point beats the previous decisively. |
-| 44 | dirichlet 0.75x | | | | | | |
-| 46 | dirichlet 1.25x | | | | | | |
+| 44 | dirichlet 0.75x | pending | pending | pending | pending | pending | pending, vs Cycle 50 |
+| 46 | dirichlet 1.25x | pending | pending | pending | pending | pending | pending, vs Cycle 50 |
 
 ### Points 31 and 42 — confirmed under real independent trials
 
