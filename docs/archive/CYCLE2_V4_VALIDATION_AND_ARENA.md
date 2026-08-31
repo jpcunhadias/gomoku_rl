@@ -2,6 +2,14 @@
 
 **Status**: ✅ Complete. v4 validated, Cycle 2 measurably beats Cycle 1.
 
+**2026-08-31 addendum**: the Wilson 95% CI reported below for the arena result (and its rerun
+under the fixed arena in `docs/current/SWEEP_TAU_DIRICHLET.md`) overstates precision — MCTS is
+deterministic after ply 1 under this project's stochastic-eval protocol, so many of the "200
+independent games" are byte-identical replays of the same few underlying trajectories, not
+independent trials. The *direction* of the result (Cycle 2 decisively stronger) is unaffected —
+see `docs/current/ARENA_TRAJECTORY_INDEPENDENCE.md` for the full finding — but don't cite the CI
+below as a rigorous statistical guarantee.
+
 Supersedes `docs/current/CYCLE2_V4_PENDING.md` (v4 was written but unrun as of the last "wip"
 commit on this branch — see `docs/CHANGELOG.md` Phase 4). See
 `docs/archive/CYCLE1_COLDSTART_MECHANISM.md` for why v4 failed when tested against Cycle 1's

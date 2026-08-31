@@ -326,3 +326,11 @@ statistical power) or a round-robin design (so non-transitivity would actually s
 rather than looking like sampling noise). Neither is worth doing right now. Park this sweep as
 **inconclusive at this design and sample size**, and move the XAI layer forward on the one pair
 that's genuinely solid: Cycle 1 vs Cycle 2.
+
+**2026-08-31 addendum**: that "near-deterministic" signature has a confirmed mechanism now, not
+just a description — see `docs/current/ARENA_TRAJECTORY_INDEPENDENCE.md`. MCTS is deterministic
+after ply 1 under this project's stochastic-eval protocol, so exact 100-0-0/50-50 splits are
+literally the same underlying trajectory recurring, not independent trials landing the same way
+by chance. This applies to every arena number in this doc, including the headline rerun above —
+their reported Wilson CIs overstate precision, though the directional conclusions (including
+"the sweep doesn't hold up," which is a *direction* claim) are unaffected.

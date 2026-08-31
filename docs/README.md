@@ -23,14 +23,25 @@ in short: **Layer 1 (Cycle 1 → Cycle 2) survived intact** (199-0-1, as decisiv
 comparisons reversed outcome or dissolved to an exact tie under the fix. Full numbers and
 analysis: `current/SWEEP_TAU_DIRICHLET.md`.
 
-**Layer 1 (Cycle 1 → Cycle 2) is done and confirmed.** Two real training generations exist:
-Cycle 1 (cold-start, trained on schedule bugs found and fixed) and Cycle 2 (v4 exploration
-config). See `archive/CYCLE1_COLDSTART_MECHANISM.md` and
+**Layer 1 (Cycle 1 → Cycle 2) direction is confirmed; its stated precision is not.** Two real
+training generations exist: Cycle 1 (cold-start, trained on schedule bugs found and fixed) and
+Cycle 2 (v4 exploration config). See `archive/CYCLE1_COLDSTART_MECHANISM.md` and
 `archive/CYCLE2_V4_VALIDATION_AND_ARENA.md` for the mechanism findings; the headline arena
 number itself was reconfirmed under the fixed, symmetric arena at 199 wins / 0 losses / 1 draw
-for Cycle 2 (200 games, 800 sims) — this is the one fully solid, load-bearing result in the
-project and the recommended basis for starting the XAI layer, rather than waiting on the sweep
-below to resolve.
+for Cycle 2 (200 games, 800 sims).
+
+**Read `current/ARENA_TRAJECTORY_INDEPENDENCE.md` before citing that number's confidence
+interval.** MCTS is deterministic after ply 1 (stochastic eval only randomizes plies 0-1), so
+games sharing an early outcome are byte-identical, not independent trials. Directly confirmed at
+real headline settings (800 sims): only 3/60 games in a check batch were genuinely distinct.
+Every unique trajectory found — 10 across two checks — has Cycle 2 winning or drawing, so the
+**direction** of this result is not in question. Its **Wilson 95% CI is a real overstatement of
+precision**, likely true of every stochastic-eval arena number in this project's history, not
+just this one. `scripts/arena.py` now reports the honest, deduped version automatically on every
+future run. This is still the best-grounded single result in the project — genuinely more so
+than the sweep — and the recommended basis for the XAI layer; just cite it as "decisively
+stronger, direction robust across every noise draw observed" rather than "199-0-1, CI
+[98.1%, 100%]."
 
 **The value-head "overconfidence" scare is closed, and it was a false alarm.** Every calibration
 check up to that point compared a model against *its own* training buffer — never a fair test.
@@ -111,11 +122,11 @@ mean past Wilson CIs claim more precision than the effective sample size support
 a follow-up, not yet checked). Not closed — see that doc's "Next steps."
 
 **Still open / not started**:
-- Check whether the "games collapse into few unique trajectories" finding affects the confidence
-  claimed for past arena Wilson CIs (headline, sweep reruns) — not yet investigated.
 - Further XAI scaling: more unique trajectories (especially draws, still n=1), a non-degenerate
   baseline for early-ply positions, and — if ever revisited — checking whether fixing Cycle 2's
   value-head overconfidence also closes the IG-vs-SHAP agreement gap found here.
+- Whether widening `play_one`'s stochastic-eval window (beyond just plies 0-1) would produce
+  genuinely more independent arena trials — see `current/ARENA_TRAJECTORY_INDEPENDENCE.md`.
 - DVC/MLflow backup wiring — the server's disk is still the only copy of everything. Parked
   since early in the project; worth revisiting given how much has been generated since.
 - Optional, non-blocking: a direct 50-vs-2 arena rerun to resolve the apparent non-transitivity
