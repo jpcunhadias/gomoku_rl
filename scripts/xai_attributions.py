@@ -103,11 +103,36 @@ def reconstruct_board(moves):
     return board
 
 
+def dedupe_games(games):
+    """Collapse games with byte-identical move sequences to one representative each.
+
+    play_one's stochastic eval only randomizes plies 0-1 (root Dirichlet noise + small
+    temperature); every ply after that runs at temperature=0, i.e. deterministic MCTS argmax.
+    Since MCTS given a fixed board + fixed weights + fixed sim count is a deterministic
+    function, once two games land on the same ply-0/ply-1 outcome their entire remainder is
+    identical. Whether that happens often or rarely depends on how easily noise/temperature can
+    flip the network's own top choice at those two plies — for these checkpoints it happens
+    often enough that a naive game count overstates how many truly distinct trajectories exist.
+    Deduping here is what makes "N examples" mean N *distinct* positions, not N labels pointing
+    at a handful of repeated ones.
+    """
+    seen = set()
+    unique = []
+    for g in games:
+        key = tuple(tuple(m) for m in g["moves"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(g)
+    return unique
+
+
 def select_positions(games, n_decisive=5, n_draws=3):
     """Pick a labeled set of positions from captured games. Draws several examples per category
-    (from different games) rather than one, so later analysis isn't resting on n=1 per category."""
+    (from different, genuinely distinct games) rather than one, so later analysis isn't resting
+    on n=1 per category — and not on repeated copies of the same one or two games either."""
     positions = [{"label": "ply0_empty", "moves": [], "note": "shared starting position"}]
 
+    games = dedupe_games(games)
     decisive = [g for g in games if g["winner"] != 0]
     draws = [g for g in games if g["winner"] == 0]
 
@@ -142,6 +167,7 @@ def build_shap_background(games, size, seed):
     """Sample a pool of real board states (various plies, various games) to use as SHAP
     GradientExplainer's reference distribution, instead of a single zero baseline."""
     rng = random.Random(seed)
+    games = dedupe_games(games)
     candidates = []
     for g in games:
         moves = g["moves"]
@@ -319,6 +345,11 @@ def main():
         with open(args.games_out, "w") as f:
             json.dump(games, f, indent=2)
         print(f"[xai] wrote {args.games_out}")
+
+    n_unique = len(dedupe_games(games))
+    print(f"[xai] {n_unique}/{len(games)} captured games are genuinely distinct trajectories"
+          " (stochastic_eval only randomizes plies 0-1; MCTS is deterministic after, so games"
+          " sharing the same ply-0/1 outcome are byte-identical thereafter)")
 
     positions = select_positions(games, n_decisive=args.n_decisive_examples, n_draws=args.n_draw_examples)
     print(f"[xai] selected {len(positions)} positions: {[p['label'] for p in positions]}")
