@@ -143,4 +143,8 @@ a follow-up, not yet checked). Not closed — see that doc's "Next steps."
   check; `--quick` for routine use, full mode (default) for one-off investigations comparing
   training configs.
 - `make arena CANDIDATE_CYCLE=X BASELINE_CYCLE=Y ARGS="--games N --sims S"` — runs with
-  `--stochastic_eval` by default now, so results are real independent trials.
+  `--stochastic_eval` by default now. Every run also reports a "TRAJECTORY INDEPENDENCE CHECK":
+  since MCTS is deterministic after ply 1, games sharing a ply-0/1 outcome are byte-identical
+  and not independent trials — the printed/JSON `unique_*` fields give the honest effective
+  sample size and Wilson CI alongside the nominal ones (see `current/XAI_LAYER.md` for how this
+  was found).
