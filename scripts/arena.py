@@ -110,7 +110,7 @@ def _normalize_opening(op):
     return out
 
 
-def play_one(p_black, p_white, opening=None, stochastic=False):
+def play_one(p_black, p_white, opening=None, stochastic=False, *, history=None):
     """
     Play a single game between p_black and p_white with optional opening and stochastic eval.
 
@@ -119,6 +119,9 @@ def play_one(p_black, p_white, opening=None, stochastic=False):
         p_white: White player (MCTSPlayer)
         opening: Optional list of (row, col) moves to apply before starting
         stochastic: If True, apply stochastic evaluation (temperature and root noise)
+        history: If a list is passed, every move actually played (opening moves included) is
+            appended to it as a ``(row, col)`` tuple, in order. The full game is replayable from
+            an empty board using this list alone. Default ``None`` records nothing.
 
     Returns:
         Winner: 1 (black wins), 2 (white wins), or 0 (draw)
@@ -143,6 +146,8 @@ def play_one(p_black, p_white, opening=None, stochastic=False):
         opening = _normalize_opening(opening)
         for r, c in opening:
             board.apply_move(r, c)
+            if history is not None:
+                history.append((r, c))
             # Update both trees
             if hasattr(p_black.mcts, "update_with_move"):
                 p_black.mcts.update_with_move((r, c))
@@ -195,6 +200,8 @@ def play_one(p_black, p_white, opening=None, stochastic=False):
             action = board.index_to_move(action)
 
         board.apply_move(*action)
+        if history is not None:
+            history.append((int(action[0]), int(action[1])))
 
         if hasattr(p_black.mcts, "update_with_move"):
             p_black.mcts.update_with_move(action)
