@@ -141,7 +141,8 @@ def top_legal_move_index(policy_logits, board):
 def attribute_position(model, board):
     """Run Integrated Gradients on the policy (top legal move) and value heads for one
     position under one model. Returns a dict of predictions + attribution arrays."""
-    x = board_to_tensor(board, board.current_player).unsqueeze(0)
+    device = next(model.parameters()).device
+    x = board_to_tensor(board, board.current_player).unsqueeze(0).to(device)
     x.requires_grad_(True)
 
     with torch.no_grad():
