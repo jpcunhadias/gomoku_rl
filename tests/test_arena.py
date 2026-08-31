@@ -1,7 +1,7 @@
 import torch
 
 from model.policy_value_net import PolicyValueNet
-from scripts.arena import load_player
+from scripts.arena import _dedupe_move_lists, load_player
 
 
 def _save_checkpoint(tmp_path):
@@ -37,3 +37,25 @@ def test_load_player_schedule_only_when_requested(tmp_path):
     # without it, effective c_puct is just the flat base constant at every depth.
     assert scheduled.mcts._effective_c_puct(0) > scheduled.mcts.c_puct
     assert unscheduled.mcts._effective_c_puct(0) == unscheduled.mcts.c_puct
+
+
+def test_dedupe_move_lists_collapses_identical_trajectories():
+    """Regression test for the trajectory-independence finding: games sharing a byte-identical
+    move sequence (a real, observed consequence of stochastic eval only randomizing plies 0-1,
+    with deterministic MCTS after) must collapse to one representative, not be double-counted
+    as independent trials."""
+    a = [(2, 3), (4, 5)]
+    b = [(2, 3), (4, 5)]  # identical to a
+    c = [(2, 3), (4, 6)]  # differs at the second move
+
+    reps = _dedupe_move_lists([a, b, c])
+    assert reps == [0, 2]
+
+
+def test_dedupe_move_lists_all_unique():
+    reps = _dedupe_move_lists([[(0, 0)], [(0, 1)], [(0, 2)]])
+    assert reps == [0, 1, 2]
+
+
+def test_dedupe_move_lists_empty():
+    assert _dedupe_move_lists([]) == []

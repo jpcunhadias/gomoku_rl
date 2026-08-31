@@ -90,6 +90,26 @@ def load_player(
     return player
 
 
+def _dedupe_move_lists(move_lists):
+    """Return the indices of the first occurrence of each byte-identical move sequence.
+
+    play_one's stochastic eval only randomizes plies 0-1 (root Dirichlet noise + a small
+    temperature); every ply after that runs at temperature=0, i.e. deterministic MCTS argmax.
+    Since MCTS given a fixed board + fixed weights + fixed simulation count is a deterministic
+    function, once two games land on the same ply-0/1 outcome their entire remainder is
+    identical, and they are not independent trials for statistical purposes even though they
+    came from separate play_one() calls with separately-seeded root noise.
+    """
+    seen = set()
+    reps = []
+    for i, moves in enumerate(move_lists):
+        key = tuple(moves)
+        if key not in seen:
+            seen.add(key)
+            reps.append(i)
+    return reps
+
+
 def wilson_ci(p, n, z=1.96):
     denom = 1 + (z * z) / n
     center = (p + (z * z) / (2 * n)) / denom
@@ -370,10 +390,19 @@ def main():
         pairs = [None] * (args.games // 2)
         desc_prefix = "Pair"
 
-    # Play paired games
+    # Play paired games. Each game's move sequence is recorded (cheap: it's just a list of
+    # (row, col) tuples) so trajectory independence can be checked afterward - see
+    # _dedupe_move_lists().
+    moves_a, winners_a, moves_b, winners_b = [], [], [], []
     for opening in tqdm(pairs, desc=f"Playing {len(pairs)} {desc_prefix.lower()} pairs"):
         # Game A: Candidate as black vs Baseline as white
-        w_a = play_one(cand_black, base_white, opening=opening, stochastic=args.stochastic_eval)
+        hist_a: list = []
+        w_a = play_one(
+            cand_black, base_white, opening=opening, stochastic=args.stochastic_eval,
+            history=hist_a,
+        )
+        moves_a.append(hist_a)
+        winners_a.append(w_a)
         if w_a == 1:
             cand_black_wins += 1
         elif w_a == 2:
@@ -382,13 +411,38 @@ def main():
             draws += 1
 
         # Game B: Baseline as black vs Candidate as white (same opening, color-swapped)
-        w_b = play_one(base_black, cand_white, opening=opening, stochastic=args.stochastic_eval)
+        hist_b: list = []
+        w_b = play_one(
+            base_black, cand_white, opening=opening, stochastic=args.stochastic_eval,
+            history=hist_b,
+        )
+        moves_b.append(hist_b)
+        winners_b.append(w_b)
         if w_b == 1:
             base_black_wins += 1
         elif w_b == 2:
             cand_white_wins += 1
         else:
             draws += 1
+
+    # Trajectory independence check: collapse to one representative per byte-identical move
+    # sequence within each color role, then recompute win/loss/draw and Wilson CI over just
+    # those representatives. Repeated games sharing a ply-0/1 outcome are the same trial played
+    # back, not independent evidence, so this is the honest effective sample size.
+    reps_a = _dedupe_move_lists(moves_a)
+    reps_b = _dedupe_move_lists(moves_b)
+    u_cand_wins = sum(1 for i in reps_a if winners_a[i] == 1) + sum(
+        1 for i in reps_b if winners_b[i] == 2
+    )
+    u_base_wins = sum(1 for i in reps_a if winners_a[i] == 2) + sum(
+        1 for i in reps_b if winners_b[i] == 1
+    )
+    u_draws = sum(1 for i in reps_a if winners_a[i] == 0) + sum(
+        1 for i in reps_b if winners_b[i] == 0
+    )
+    u_decisive = u_cand_wins + u_base_wins
+    u_wr = u_cand_wins / max(1, u_decisive)
+    u_lo, u_hi = wilson_ci(u_wr, max(1, u_decisive))
 
     # Aggregate from candidate perspective
     wins = cand_black_wins + cand_white_wins
@@ -436,6 +490,17 @@ def main():
         opening_count=len(openings) if openings else None,
         # Timing
         elapsed_sec=time.time() - t0,
+        # Trajectory independence check (not part of the stable CSV schema - see
+        # _dedupe_move_lists() docstring for why this matters)
+        unique_trajectories_cand_black=len(reps_a),
+        unique_trajectories_cand_white=len(reps_b),
+        unique_decisive=u_decisive,
+        unique_wins=u_cand_wins,
+        unique_losses=u_base_wins,
+        unique_draws=u_draws,
+        unique_winrate_decisive=u_wr,
+        unique_wilson95_lo=u_lo,
+        unique_wilson95_hi=u_hi,
     )
 
     # Save JSON result
@@ -509,6 +574,26 @@ def main():
     print(f"  Baseline wins:   {losses}")
     print(f"  Winrate (decisive): {wr:.4f} ({wr * 100:.2f}%)")
     print(f"  Wilson 95% CI:   [{lo:.4f}, {hi:.4f}]")
+
+    print("\n" + "-" * 80)
+    print("TRAJECTORY INDEPENDENCE CHECK")
+    print("-" * 80)
+    n_unique = len(reps_a) + len(reps_b)
+    print(
+        f"  {n_unique}/{total_games} games are genuinely distinct move sequences"
+        f" ({len(reps_a)}/{len(pairs)} as cand-black, {len(reps_b)}/{len(pairs)} as cand-white)."
+    )
+    if args.stochastic_eval and n_unique < total_games:
+        print(
+            "  Stochastic eval only randomizes plies 0-1; MCTS is deterministic after, so games"
+            " sharing that early outcome are byte-identical thereafter and are NOT independent"
+            " trials for CI purposes, even though each came from its own play_one() call."
+        )
+    print(f"  Effective decisive trials: {u_decisive} (vs. {n_decisive} nominal)")
+    print(f"  Winrate over unique trajectories: {u_wr:.4f} ({u_wr * 100:.2f}%)")
+    print(f"  Effective Wilson 95% CI:          [{u_lo:.4f}, {u_hi:.4f}]")
+    print("  (Compare against the nominal CI above - a much wider effective CI means the")
+    print("   nominal one is overstating precision; use the effective one when citing this.)")
 
     print("\n" + "-" * 80)
     print("PER-COLOR BREAKDOWN")
