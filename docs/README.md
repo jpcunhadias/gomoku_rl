@@ -94,10 +94,21 @@ child ended up with 0 visits — now has a dedicated regression test) and a scat
 just satisfying the linter). Remaining, left as documented debt: line-length and a handful of
 `sys.path`-before-import lines in standalone debug scripts (a deliberate pattern, not a bug).
 
+**The XAI layer has a first pass.** `current/XAI_LAYER.md` — Captum Integrated Gradients on the
+Cycle 1 vs Cycle 2 pair, using real positions captured from actual games between the two
+checkpoints (arena.py's `play_one()` gained a small, additive history-recording hook for this,
+since it never logged move sequences before). Produced a genuine methodological finding (per-cell
+attribution can't explain ply-0 move choice by construction — nothing to attribute against an
+identical baseline) plus three illustrative (n=1, not yet statistically established) real
+findings: Cycle 1 reacts more strongly to a single visible opponent stone early on than Cycle 2
+does; Cycle 2's value head localizes sharply on a decisive tactical pattern at a late-game
+position where Cycle 1's stays diffuse; and the two networks can disagree in sign, not just
+magnitude, on the same position from a drawn game. Not closed — see that doc's "Next steps" for
+what a larger, more rigorous pass would need.
+
 **Still open / not started**:
-- The XAI layer (captum/shap) — the natural next step now that arena results are trustworthy
-  again. Should target the Cycle 1 vs Cycle 2 pair specifically; doesn't need the sweep below
-  to resolve first.
+- Scaling the XAI pass above: more captured games, more positions per category, a second
+  attribution method as a cross-check, and a non-degenerate baseline for early-ply positions.
 - DVC/MLflow backup wiring — the server's disk is still the only copy of everything. Parked
   since early in the project; worth revisiting given how much has been generated since.
 - Optional, non-blocking: a direct 50-vs-2 arena rerun to resolve the apparent non-transitivity
