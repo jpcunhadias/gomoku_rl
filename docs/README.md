@@ -94,21 +94,28 @@ child ended up with 0 visits — now has a dedicated regression test) and a scat
 just satisfying the linter). Remaining, left as documented debt: line-length and a handful of
 `sys.path`-before-import lines in standalone debug scripts (a deliberate pattern, not a bug).
 
-**The XAI layer has a first pass.** `current/XAI_LAYER.md` — Captum Integrated Gradients on the
-Cycle 1 vs Cycle 2 pair, using real positions captured from actual games between the two
-checkpoints (arena.py's `play_one()` gained a small, additive history-recording hook for this,
-since it never logged move sequences before). Produced a genuine methodological finding (per-cell
-attribution can't explain ply-0 move choice by construction — nothing to attribute against an
-identical baseline) plus three illustrative (n=1, not yet statistically established) real
-findings: Cycle 1 reacts more strongly to a single visible opponent stone early on than Cycle 2
-does; Cycle 2's value head localizes sharply on a decisive tactical pattern at a late-game
-position where Cycle 1's stays diffuse; and the two networks can disagree in sign, not just
-magnitude, on the same position from a drawn game. Not closed — see that doc's "Next steps" for
-what a larger, more rigorous pass would need.
+**The XAI layer has two passes, and a real cross-validated finding.** `current/XAI_LAYER.md` —
+Captum Integrated Gradients *and* SHAP GradientExplainer on the Cycle 1 vs Cycle 2 pair, using
+real positions captured from actual games between the two checkpoints (arena.py's `play_one()`
+gained a small, additive history-recording hook for this, since it never logged move sequences
+before). Headline finding: **Cycle 2's value head shows lower agreement between the two
+attribution methods than Cycle 1's does, consistently across every position category with more
+than one example** — and this lines up with an already-documented, independent finding from
+months earlier (Cycle 2's value head is measurably overconfident: 43.8% pre-tanh saturation vs
+Cycle 1's 10.5%, degraded Brier/ECE). Two unrelated measurements, taken months apart, pointing
+the same direction. Also found, along the way: scaling the capture from 10 to 40 games surfaced
+that only 7 were genuinely distinct trajectories — `play_one`'s stochastic eval only randomizes
+plies 0-1, so MCTS is deterministic thereafter, meaning "N games" can overstate how many
+independent trials actually exist (doesn't change any past arena result's direction, but may
+mean past Wilson CIs claim more precision than the effective sample size supports — flagged as
+a follow-up, not yet checked). Not closed — see that doc's "Next steps."
 
 **Still open / not started**:
-- Scaling the XAI pass above: more captured games, more positions per category, a second
-  attribution method as a cross-check, and a non-degenerate baseline for early-ply positions.
+- Check whether the "games collapse into few unique trajectories" finding affects the confidence
+  claimed for past arena Wilson CIs (headline, sweep reruns) — not yet investigated.
+- Further XAI scaling: more unique trajectories (especially draws, still n=1), a non-degenerate
+  baseline for early-ply positions, and — if ever revisited — checking whether fixing Cycle 2's
+  value-head overconfidence also closes the IG-vs-SHAP agreement gap found here.
 - DVC/MLflow backup wiring — the server's disk is still the only copy of everything. Parked
   since early in the project; worth revisiting given how much has been generated since.
 - Optional, non-blocking: a direct 50-vs-2 arena rerun to resolve the apparent non-transitivity
