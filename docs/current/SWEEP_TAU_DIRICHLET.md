@@ -1,10 +1,20 @@
 # Sweep: tau and dirichlet_epsilon around Cycle 2's v4 config
 
-**Status**: Paused, pending a rerun under a just-fixed arena confound (issue #4 below). Turned
-out to be as much a methodology audit as a parameter sweep — four real issues in existing
-tooling were found and fixed while running it. See "Issues found and fixed" below before
-trusting any single number in the results table in isolation, especially the arena win/loss
-columns — **all of them predate the fix in issue #4 and need to be treated as provisional.**
+**Status (2026-08-31): closed, parked as inconclusive.** The rerun under the fixed arena (issue
+#4 below) is complete — see "Rerun under the fixed arena" near the bottom for the full result
+set. Verdict: the sweep's headline claim ("more tau monotonically increases strength, no
+ceiling in sight") does not survive the fix in any form. Three of its four supporting
+comparisons reversed outcome or dissolved to a coin flip; only one (42 vs 50) reproduced
+exactly. The recommendation is to **not** invest further in rescuing this sweep — the pattern
+of near-uniform 100-0-0 / 50-50 results at only 50-100 games looks like non-transitive,
+high-variance matchups that a star-comparison design at this sample size was never built to
+resolve. Layer 1 (Cycle 1 -> Cycle 2) is unaffected and remains the one fully solid result;
+the XAI layer can proceed on that pair without waiting on a "best tau/dirichlet setting"
+answer from this sweep. Turned out to be as much a methodology audit as a parameter sweep —
+four real issues in existing tooling were found and fixed while running it (below), on top of
+the arena confound found afterward. Everything under "Results" (the original table and
+analysis) reflects the **pre-fix, confounded arena** and is kept for the historical record —
+read the rerun section for what actually holds.
 
 ## Issue #4 (found after the results below were recorded): arena's schedule asymmetry
 
@@ -28,10 +38,11 @@ spending compute on the confounded setup. Point 44 (dirichlet 0.75x) did finish 
 pipeline before the stop, including an arena result — also confounded, listed below for the
 record but not to be trusted as-is.
 
-**Not yet decided**: whether/when to rerun the tau axis, point 44, point 46, and the headline
-arena under the fix. The tau axis's result was the cleanest and most surprising (a monotonic,
-escalating "every stronger setting wins every game" pattern) - which is also exactly the kind
-of result worth being most suspicious of until it's reconfirmed cleanly.
+**Decided (2026-08-31)**: the tau axis, point 44, and the headline arena were all rerun under
+the fix (point 46 was not — it was stopped mid-training and only has a `_last` checkpoint, not
+a `_best`, so it isn't rerunnable without finishing that training first). See "Rerun under the
+fixed arena" below for the full result. The tau axis's original result *was* exactly the kind
+of thing worth being most suspicious of, and that suspicion was warranted — it did not survive.
 
 ## Design
 
@@ -252,3 +263,66 @@ lesson exactly, now showing up cleanly across a whole sweep axis: calibration qu
 playing strength are not the same thing, and here they move in opposite directions as tau
 increases. **Open question, not yet answered**: does strength keep climbing past 1.5x, or is a
 ceiling close? No sign of one yet in 4 points.
+
+*(Everything above this point reflects the confounded arena and is kept for the historical
+record. What follows is the rerun under the fix.)*
+
+## Rerun under the fixed arena (2026-08-30/31) — the sweep does not survive
+
+Launched as a detached, hardened tmux job on `home-lan` (two earlier attempts died mid-run from
+an unrelated tmux/attach mishap, not anything to do with the sweep itself — see
+[[feedback_long_running_jobs]] in memory for that story). Six comparisons, all using existing
+checkpoints (no retraining needed) and `make arena`'s now-default symmetric schedule
+(`--candidate_schedule`/`--baseline_schedule` both `False`):
+
+| Comparison | Result (W-L-D) | Decisive WR | Original (confounded) result | Verdict |
+|---|---|---|---|---|
+| Headline: Cycle 2 vs Cycle 1 (200g/800s) | 199-0-1 | 99.5% | 100-0-0 (same story) | **Survived** |
+| tau 0.75x: 31 vs 2 (100g/400s) | 38-12-50 | 76.0% | 0-100-0 (31 lost outright) | **Reversed** |
+| tau 1.25x: 42 vs 2 (100g/400s) | 42-50-8 | 45.7% (a loss) | 100-0-0 (42 won outright) | **Reversed** |
+| tau isolate: 42 vs 50 (100g/400s) | 100-0-0 | 100% | 100-0-0 (same) | **Survived exactly** |
+| tau 1.5x: 61 vs 42 (100g/400s) | 50-50-0 | 50.0% | 100-0-0 (61 won outright) | **Dissolved to a tie** |
+| dirichlet 0.75x: 44 vs 50 (100g/400s) | 0-100-0 | 0.0% | (never trustworthy before) | New clean result: 44 is robustly weaker |
+
+Point 46 (dirichlet 1.25x) was not included — it only has a `_last` checkpoint from before the
+job was stopped mid-training, no `_best`, so it can't be arena'd without finishing that
+training run first.
+
+**Color patterns worth recording** (not noise — several are perfectly clean, either 100% or 0%
+within a color, across 50 games):
+- 31 vs 2: candidate (31) wins 76% as White, **draws every single game as Black** (0 wins, 0
+  losses in that half).
+- 42 vs 2: candidate (42) wins 84% as White, **loses every single game as Black** (0 wins, 0
+  draws in that half).
+- 61 vs 42: total color determinism in *both* directions at once — whoever plays Black wins
+  100% of the time, regardless of which model that is. Combined with the 50-50 aggregate, this
+  reads as two models of genuinely equal strength where color/opening handling, not model
+  quality, decides every individual game.
+- 44 vs 50: no color dependence at all — 50 wins as both Black and White. The one comparison in
+  this batch with a clean, uncomplicated signal.
+
+**What this means**: the sweep's central claim — more tau monotonically increases strength,
+with no ceiling in sight through four points — is dead. It was built on 31 vs 2, 42 vs 2, and
+61 vs 42; all three either reversed or evaporated under the fix. Only 42 vs 50 reproduced
+identically (and this time with an even color split, whereas the original had a suspicious
+50-50 exact split too — so this one genuinely looks solid). One surviving pairwise result can't
+carry a monotonic-trend claim across four points on its own.
+
+**New tension, not yet resolved**: 42 beats 50 100-0, but 42 *loses* to Cycle 2 (step 3 above).
+Cycle 2 and Cycle 50 share the *identical* tau/dirichlet config (v4) — the "Cycle 50" clean
+baseline was specifically built to be a fair stand-in for Cycle 2 (see issue #3 and the "Cycle
+50" section above). If 42 > 50 and 2 > 42, transitivity says 2 > 50 — which flatly contradicts
+this doc's own "buffer purity beats size" finding (50 beats Cycle 2 despite half the data,
+recorded above). Either that finding doesn't hold up either, or these three models aren't
+transitive at this sample size. **A direct 50-vs-2 rerun would resolve which — not done in this
+batch, optional follow-up, not blocking.**
+
+**Recommendation**: don't chase this further to "fix" the sweep. The pattern across this whole
+batch — several 100-0-0 or exact 50-50 splits with total color determinism at only 50-100
+games — is the signature of near-deterministic, highly color-dependent matchups, not a smooth
+strength ordering a star-comparison design (each point vs. one shared reference) can reliably
+detect. Getting a trustworthy ranking would need either far more games per comparison (for real
+statistical power) or a round-robin design (so non-transitivity would actually show up as such,
+rather than looking like sampling noise). Neither is worth doing right now. Park this sweep as
+**inconclusive at this design and sample size**, and move the XAI layer forward on the one pair
+that's genuinely solid: Cycle 1 vs Cycle 2.

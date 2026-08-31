@@ -12,25 +12,25 @@ after a break — read this file first.
 
 ## Status as of this writing
 
-**Read this part first: every arena result in the project to date is provisional.**
-`scripts/arena.py` used to hard-code the candidate to always get a c_puct search-time
-exploration bonus that the baseline never got (up to eff. c_puct 4.0 vs. a flat 1.5),
-regardless of which model was actually being tested — and the model under test was always
-passed as candidate, in every comparison this project has ever run. That means every
-"decisive win" recorded so far (Cycle 2 over Cycle 1, every sweep point over Cycle 2, the
-tau-axis's 100-0-0 results) could be partly or wholly a search-time artifact rather than
-genuine trained-model strength. **Fixed** — `--candidate_schedule` now exists alongside
-`--baseline_schedule`, both default to `False`, so `make arena` is fair by default — but
-nothing has been rerun under the fix yet. Treat every arena number dated before this fix as
-directionally suggestive, not confirmed. A background sweep run in progress when this was
-found was deliberately stopped mid-run rather than let it keep spending compute on the
-confounded setup.
+**The arena confound is fixed, and the rerun is complete (2026-08-31).** `scripts/arena.py`
+used to hard-code the candidate to always get a c_puct search-time exploration bonus that the
+baseline never got, regardless of which model was actually being tested — and the model under
+test was always passed as candidate, in every comparison this project had ever run. That's
+fixed (`--candidate_schedule`/`--baseline_schedule` both default `False`, so `make arena` is
+fair by default), and all six affected comparisons have now been rerun under the fix. Result,
+in short: **Layer 1 (Cycle 1 → Cycle 2) survived intact** (199-0-1, as decisive as before), but
+**the tau/dirichlet sweep's headline conclusion did not** — three of its four supporting
+comparisons reversed outcome or dissolved to an exact tie under the fix. Full numbers and
+analysis: `current/SWEEP_TAU_DIRICHLET.md`.
 
-**Layer 1 (Cycle 1 → Cycle 2) is done, modulo the caveat above.** Two real training
-generations exist: Cycle 1 (cold-start, trained on schedule bugs found and fixed) and Cycle 2
-(v4 exploration config). See `archive/CYCLE1_COLDSTART_MECHANISM.md` and
-`archive/CYCLE2_V4_VALIDATION_AND_ARENA.md` — both good for the mechanism findings, not yet
-reconfirmed for the exact arena numbers.
+**Layer 1 (Cycle 1 → Cycle 2) is done and confirmed.** Two real training generations exist:
+Cycle 1 (cold-start, trained on schedule bugs found and fixed) and Cycle 2 (v4 exploration
+config). See `archive/CYCLE1_COLDSTART_MECHANISM.md` and
+`archive/CYCLE2_V4_VALIDATION_AND_ARENA.md` for the mechanism findings; the headline arena
+number itself was reconfirmed under the fixed, symmetric arena at 199 wins / 0 losses / 1 draw
+for Cycle 2 (200 games, 800 sims) — this is the one fully solid, load-bearing result in the
+project and the recommended basis for starting the XAI layer, rather than waiting on the sweep
+below to resolve.
 
 **The value-head "overconfidence" scare is closed, and it was a false alarm.** Every calibration
 check up to that point compared a model against *its own* training buffer — never a fair test.
@@ -66,12 +66,26 @@ test-coverage gap**:
   (`tests/test_mcts_extended.py`), plus a regression test for the MCTS divide-by-zero fix
   below.
 
-**The tau/dirichlet_epsilon sweep (Layer 2) is paused, pending a rerun under the arena fix.**
-The tau axis produced a very clean-looking result (4 points, each beating the previous
-decisively) — worth reconfirming now that the schedule confound is fixed, not assuming it
-survives unchanged. The dirichlet axis has one point done (44, dirichlet 0.75x — also
-confounded, not yet rerun) and one not started (46). The Cycle 1 vs 2 headline arena rerun
-never got to run before the job was stopped.
+**The tau/dirichlet_epsilon sweep (Layer 2) is closed, parked as inconclusive.** The tau axis
+had produced a very clean-looking result (4 points, each beating the previous decisively) —
+that did not survive reconfirmation under the fixed arena. Under the fix: tau 0.75x (point 31)
+now *beats* Cycle 2 (it used to lose outright); tau 1.25x (point 42) now *loses* to Cycle 2 (it
+used to win outright); tau 1.5x (point 61) is now an exact tie against point 42 (it used to win
+outright). Only one comparison in the whole axis reproduced identically (42 vs 50, 100-0-0 both
+times). Point 44 (dirichlet 0.75x) was also rerun and is robustly weaker than the clean
+baseline (0-100-0, no color dependence — the cleanest signal in the batch). Point 46 was never
+rerun — it only has a `_last` checkpoint from before the original job was stopped mid-training,
+not a `_best`, so it isn't rerunnable without finishing that training run first.
+
+Several of the rerun results show total color determinism (100% win/loss or an exact split by
+color) at only 50-100 games — read as non-transitive, high-variance matchups rather than a
+smooth strength ordering, which a star-comparison design (each point vs. one shared reference)
+at this sample size can't reliably resolve. **Recommendation: don't invest further in rescuing
+this sweep** — a trustworthy ranking would need either many more games per comparison or a
+round-robin design, and neither is worth doing right now. One loose end, optional and
+non-blocking: 42 beats 50 100-0 but loses to Cycle 2, even though Cycle 2 and Cycle 50 share an
+identical config — a direct 50-vs-2 rerun would resolve the apparent non-transitivity, but
+nothing is gated on it. Full detail: `current/SWEEP_TAU_DIRICHLET.md`.
 
 **Code quality**: a full pass closed ~250 lint findings (most mechanical) and fixed a real
 divide-by-zero in MCTS's visit-count normalization (silent NaN probabilities if every root
@@ -81,13 +95,16 @@ just satisfying the linter). Remaining, left as documented debt: line-length and
 `sys.path`-before-import lines in standalone debug scripts (a deliberate pattern, not a bug).
 
 **Still open / not started**:
-- Rerunning the sweep (and the Cycle 1 vs 2 headline arena) under the fixed, symmetric arena
-  — the natural next step, not yet done.
+- The XAI layer (captum/shap) — the natural next step now that arena results are trustworthy
+  again. Should target the Cycle 1 vs Cycle 2 pair specifically; doesn't need the sweep below
+  to resolve first.
 - DVC/MLflow backup wiring — the server's disk is still the only copy of everything. Parked
   since early in the project; worth revisiting given how much has been generated since.
-- The XAI layer (captum/shap) — planned next step once arena results are trustworthy again.
-- Whether the sweep's conclusions hold at full compute (200 games/800 sims, not the reduced
-  100/400 used for speed) — untested either way.
+- Optional, non-blocking: a direct 50-vs-2 arena rerun to resolve the apparent non-transitivity
+  noted in the sweep rerun (42 > 50 but 2 > 42, while 2 and 50 share an identical config).
+- Whether a properly-powered redesign of the tau/dirichlet sweep (more games, or round-robin
+  instead of star-comparison) is worth doing at all, now that the original design's conclusions
+  didn't survive — not decided; not currently planned.
 - Why discounting value targets made calibration worse during the value-head investigation —
   found, reverted, never actually explained.
 
